@@ -37,7 +37,7 @@ class TypingBattleGame:
     CANVAS_HEIGHT = 220
 
     PLAYER_POS = (40, 140, 100, 200)
-    BOSS_POS = (420, 40, 500, 140)
+    BOSS_POS = (410, 40, 510, 140)
 
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
@@ -113,20 +113,32 @@ class TypingBattleGame:
         )
         self.canvas.grid(row=1, column=0, sticky="ew", pady=(12, 12))
 
-        self.player_sprite = self.canvas.create_rectangle(
-            *self.PLAYER_POS, fill="#7dd3fc", outline="#0891b2", width=3
+        self.player_circle = self.canvas.create_oval(
+            self.PLAYER_POS[0],
+            self.PLAYER_POS[1],
+            self.PLAYER_POS[2],
+            self.PLAYER_POS[3],
+            fill="#7dd3fc",
+            outline="#0891b2",
+            width=4,
         )
-        self.boss_sprite = self.canvas.create_rectangle(
-            *self.BOSS_POS, fill="#f97316", outline="#ea580c", width=4
-        )
-        self.canvas.create_text(
+        self.player_label = self.canvas.create_text(
             (self.PLAYER_POS[0] + self.PLAYER_POS[2]) // 2,
             self.PLAYER_POS[1] - 12,
             text="플레이어",
             fill="#bae6fd",
             font=("Nanum Gothic", 10, "bold"),
         )
-        self.canvas.create_text(
+        self.boss_circle = self.canvas.create_oval(
+            self.BOSS_POS[0],
+            self.BOSS_POS[1],
+            self.BOSS_POS[2],
+            self.BOSS_POS[3],
+            fill="#f97316",
+            outline="#ea580c",
+            width=5,
+        )
+        self.boss_label = self.canvas.create_text(
             (self.BOSS_POS[0] + self.BOSS_POS[2]) // 2,
             self.BOSS_POS[3] + 12,
             text="보스",
@@ -155,6 +167,22 @@ class TypingBattleGame:
         self.current_line_display.configure(state="disabled")
         self.current_line_display.grid(row=0, column=0, sticky="ew")
 
+        self.karaoke_display = tk.Text(
+            typing_frame,
+            width=40,
+            height=2,
+            font=("Nanum Gothic", 18, "bold"),
+            bg="#14122d",
+            fg="#fef08a",
+            relief="flat",
+            wrap="char",
+        )
+        self.karaoke_display.tag_configure("typed", foreground="#facc15")
+        self.karaoke_display.tag_configure("wrong", foreground="#f87171")
+        self.karaoke_display.tag_configure("align", justify="center")
+        self.karaoke_display.configure(state="disabled")
+        self.karaoke_display.grid(row=1, column=0, sticky="ew", pady=(6, 0))
+
         self.next_line_label = ttk.Label(
             typing_frame,
             text="",
@@ -162,7 +190,7 @@ class TypingBattleGame:
             foreground="#737373",
             anchor="center",
         )
-        self.next_line_label.grid(row=1, column=0, sticky="ew", pady=(8, 0))
+        self.next_line_label.grid(row=2, column=0, sticky="ew", pady=(6, 0))
 
         entry_frame = ttk.Frame(container, padding=(0, 4))
         entry_frame.grid(row=3, column=0, sticky="ew")
@@ -201,7 +229,7 @@ class TypingBattleGame:
         self._update_hp_labels()
         self.status_label.configure(text="타자를 시작하면 전투가 진행됩니다!")
 
-        self._update_line_display(initial=True)
+        self._update_line_display()
 
         self.entry.configure(state="normal")
         self.ignore_entry_update = True
@@ -209,8 +237,10 @@ class TypingBattleGame:
         self.ignore_entry_update = False
         self.entry.focus_set()
 
-        self.canvas.itemconfig(self.player_sprite, fill="#7dd3fc")
-        self.canvas.itemconfig(self.boss_sprite, fill="#f97316")
+        self.canvas.itemconfig(self.player_circle, fill="#7dd3fc")
+        self.canvas.itemconfig(self.player_circle, outline="#0891b2")
+        self.canvas.itemconfig(self.boss_circle, fill="#f97316")
+        self.canvas.itemconfig(self.boss_circle, outline="#ea580c")
 
         self.start_time = time.perf_counter()
         if not hasattr(self, "_timer_running"):
@@ -291,6 +321,9 @@ class TypingBattleGame:
             text=f"틀렸습니다! 입력 - '{ch}' / 목표 - '{expected}'"
         )
 
+        _, current_line, typed_len, _ = self._get_line_state()
+        self._set_karaoke_text(current_line[:typed_len], wrong_char=ch)
+
         if self.player_hp <= 0:
             self._finish_game(victory=False)
 
@@ -304,7 +337,23 @@ class TypingBattleGame:
             text=f"내 체력 - {self.player_hp}/{self.PLAYER_MAX_HP}"
         )
 
-    def _update_line_display(self, initial: bool = False) -> None:
+    def _get_line_state(self) -> tuple[int, str, int, str]:
+        if self.current_index >= self.total_chars:
+            idx = len(ANTHEM_LINES) - 1
+            typed_len = len(ANTHEM_LINES[idx])
+            next_line = ""
+        else:
+            idx, typed_len = self.char_meta[self.current_index]
+            next_line = ANTHEM_LINES[idx + 1] if idx + 1 < len(ANTHEM_LINES) else ""
+        return idx, ANTHEM_LINES[idx], typed_len, next_line
+
+    def _update_line_display(self) -> None:
+        line_idx, current_line, typed_len, next_line = self._get_line_state()
+        self.current_line_index = line_idx
+
+        typed_text = current_line[:typed_len]
+        remaining_text = current_line[typed_len:]
+
         self.current_line_display.configure(state="normal")
         self.current_line_display.delete("1.0", "end")
         self.current_line_display.tag_remove("typed", "1.0", "end")
@@ -312,30 +361,12 @@ class TypingBattleGame:
         self.current_line_display.tag_remove("pending", "1.0", "end")
         self.current_line_display.tag_remove("align", "1.0", "end")
 
-        if self.current_index >= self.total_chars:
-            current_line = ANTHEM_LINES[-1]
-            typed_len = len(current_line)
-            next_line = ""
-        else:
-            current_line_idx, pos_in_line = self.char_meta[self.current_index]
-            self.current_line_index = current_line_idx
-            current_line = ANTHEM_LINES[current_line_idx]
-            typed_len = pos_in_line
-            next_line = (
-                ANTHEM_LINES[current_line_idx + 1] if current_line_idx + 1 < len(ANTHEM_LINES) else ""
-            )
-
-        if self.current_index == 0 and initial:
-            typed_len = 0
-
-        typed_text = current_line[:typed_len]
-        remaining_text = current_line[typed_len:]
-
         self.current_line_display.insert("1.0", typed_text)
         self.current_line_display.insert("end", remaining_text)
         self.current_line_display.tag_add("align", "1.0", "end")
 
-        self.current_line_display.tag_add("typed", "1.0", f"1.0 + {len(typed_text)}c")
+        if typed_text:
+            self.current_line_display.tag_add("typed", "1.0", f"1.0 + {len(typed_text)}c")
         if remaining_text:
             self.current_line_display.tag_add(
                 "current", f"1.0 + {len(typed_text)}c", f"1.0 + {len(typed_text) + 1}c"
@@ -343,32 +374,90 @@ class TypingBattleGame:
             self.current_line_display.tag_add(
                 "pending", f"1.0 + {len(typed_text) + 1}c", "end"
             )
+
         self.current_line_display.configure(state="disabled")
+
+        self._set_karaoke_text(typed_text)
 
         self.next_line_label.configure(
             text=f"다음 - {next_line}" if next_line else "다음 줄 없음"
         )
 
+    def _set_karaoke_text(self, typed_text: str, wrong_char: str | None = None) -> None:
+        self.karaoke_display.configure(state="normal")
+        self.karaoke_display.delete("1.0", "end")
+        if typed_text:
+            self.karaoke_display.insert("1.0", typed_text, ("align", "typed"))
+        if wrong_char:
+            if not typed_text:
+                self.karaoke_display.insert("1.0", "", ("align",))
+            self.karaoke_display.insert("end", wrong_char, ("align", "wrong"))
+        if not typed_text and not wrong_char:
+            self.karaoke_display.insert("1.0", "", ("align",))
+        self.karaoke_display.tag_add("align", "1.0", "end")
+        self.karaoke_display.configure(state="disabled")
+
     def _animate_missile(self) -> None:
         start_x = (self.PLAYER_POS[0] + self.PLAYER_POS[2]) // 2
         start_y = (self.PLAYER_POS[1] + self.PLAYER_POS[3]) // 2
+        missile_radius = 6
         missile = self.canvas.create_oval(
-            start_x - 6, start_y - 6, start_x + 6, start_y + 6, fill="#38bdf8", outline="#bae6fd"
+            start_x - missile_radius,
+            start_y - missile_radius,
+            start_x + missile_radius,
+            start_y + missile_radius,
+            fill="#38bdf8",
+            outline="#bae6fd",
         )
 
         target_x = (self.BOSS_POS[0] + self.BOSS_POS[2]) // 2
         target_y = (self.BOSS_POS[1] + self.BOSS_POS[3]) // 2
-        steps = 20
-        dx = (target_x - start_x) / steps
-        dy = (target_y - start_y) / steps
+
+        control1 = (
+            start_x + max(40, (target_x - start_x) * 0.25),
+            start_y - 90,
+        )
+        control2 = (
+            target_x - max(40, (target_x - start_x) * 0.2),
+            target_y + 80,
+        )
+
+        steps = 48
+
+        def bezier_point(t: float) -> tuple[float, float]:
+            inv = 1.0 - t
+            x = (
+                inv ** 3 * start_x
+                + 3 * inv ** 2 * t * control1[0]
+                + 3 * inv * t ** 2 * control2[0]
+                + t ** 3 * target_x
+            )
+            y = (
+                inv ** 3 * start_y
+                + 3 * inv ** 2 * t * control1[1]
+                + 3 * inv * t ** 2 * control2[1]
+                + t ** 3 * target_y
+            )
+            return x, y
 
         def move(step: int = 0) -> None:
-            if step >= steps or self.game_over:
+            if step > steps or self.game_over:
                 self.canvas.delete(missile)
-                self._flash_boss()
+                if not self.game_over:
+                    self._flash_boss()
                 return
-            self.canvas.move(missile, dx, dy)
-            self.root.after(20, move, step + 1)
+
+            t = step / steps
+            eased = t ** 2.2
+            x, y = bezier_point(eased)
+            self.canvas.coords(
+                missile,
+                x - missile_radius,
+                y - missile_radius,
+                x + missile_radius,
+                y + missile_radius,
+            )
+            self.root.after(18, move, step + 1)
 
         move()
 
@@ -379,6 +468,8 @@ class TypingBattleGame:
         line_text = ANTHEM_LINES[self.current_line_index]
         spins = 10
         duration = 20
+
+        self._set_karaoke_text("")
 
         def spin(step: int = 0) -> None:
             if step >= spins or self.game_over:
@@ -413,15 +504,15 @@ class TypingBattleGame:
         original_color = "#f97316"
         hit_color = "#fbbf24"
 
-        self.canvas.itemconfig(self.boss_sprite, fill=hit_color)
-        self.root.after(120, lambda: self.canvas.itemconfig(self.boss_sprite, fill=original_color))
+        self.canvas.itemconfig(self.boss_circle, fill=hit_color)
+        self.root.after(120, lambda: self.canvas.itemconfig(self.boss_circle, fill=original_color))
 
     def _flash_player(self) -> None:
         original_color = "#7dd3fc"
         hit_color = "#f87171"
 
-        self.canvas.itemconfig(self.player_sprite, fill=hit_color)
-        self.root.after(150, lambda: self.canvas.itemconfig(self.player_sprite, fill=original_color))
+        self.canvas.itemconfig(self.player_circle, fill=hit_color)
+        self.root.after(150, lambda: self.canvas.itemconfig(self.player_circle, fill=original_color))
 
     def _finish_game(self, victory: bool) -> None:
         self.game_over = True
@@ -434,12 +525,12 @@ class TypingBattleGame:
             self.status_label.configure(
                 text=f"승리! 총 소요 시간 {elapsed:0.2f}초 - 정확한 타자 실력입니다!"
             )
-            self.canvas.itemconfig(self.boss_sprite, fill="#22c55e")
+            self.canvas.itemconfig(self.boss_circle, fill="#22c55e")
         else:
             self.status_label.configure(
                 text=f"패배... 애국가를 끝까지 지키지 못했습니다. (생존 시간 {elapsed:0.2f}초)"
             )
-            self.canvas.itemconfig(self.player_sprite, fill="#ef4444")
+            self.canvas.itemconfig(self.player_circle, fill="#ef4444")
 
     def run(self) -> None:
         self.root.mainloop()

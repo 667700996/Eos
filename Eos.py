@@ -6,7 +6,7 @@
 
 import time
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, font
 
 
 ANTHEM_LINES = [
@@ -81,36 +81,106 @@ class TypingBattleGame:
         container = ttk.Frame(self.root, padding=16)
         container.grid(row=0, column=0, sticky="nsew")
 
+        self.line_font = font.Font(family="Nanum Gothic", size=20, weight="bold")
+        self.bottom_font = font.Font(family="Nanum Gothic", size=18, weight="bold")
+        self.bar_font = font.Font(family="Nanum Gothic", size=11, weight="bold")
+
         top_frame = ttk.Frame(container)
         top_frame.grid(row=0, column=0, sticky="ew")
         top_frame.columnconfigure(0, weight=1)
         top_frame.columnconfigure(1, weight=1)
         top_frame.columnconfigure(2, weight=1)
 
-        self.accuracy_label = ttk.Label(
-            top_frame,
-            text="정확도 - 100.0%",
-            style="Info.TLabel",
-        )
-        self.accuracy_label.grid(row=0, column=0, sticky="w")
-
-        self.timer_label = ttk.Label(top_frame, text="시간 - 0.00초", style="Info.TLabel", anchor="center")
-        self.timer_label.grid(row=0, column=1, sticky="ew")
+        self.timer_label = ttk.Label(top_frame, text="시간 - 0.00초", style="Info.TLabel", anchor="w")
+        self.timer_label.grid(row=0, column=0, sticky="w")
 
         self.boss_hp_label = ttk.Label(
             top_frame,
             text=f"보스 체력 - {self.total_chars - self.current_index}/{self.total_chars} (100.0%)",
             style="Info.TLabel",
-        )
-        self.boss_hp_label.grid(row=0, column=2, sticky="e")
-
-        self.wpm_label = ttk.Label(
-            top_frame,
-            text="분당 타수 - 0.0",
-            style="Small.TLabel",
             anchor="center",
         )
-        self.wpm_label.grid(row=1, column=1, sticky="n")
+        self.boss_hp_label.grid(row=0, column=1, sticky="n")
+
+        self.status_label = ttk.Label(
+            top_frame,
+            text="한 글자씩 정확하게 입력하면 보스에게 미사일이 발사됩니다!",
+            style="Status.TLabel",
+            anchor="e",
+        )
+        self.status_label.grid(row=0, column=2, sticky="e")
+
+        bar_frame = ttk.Frame(container, padding=(0, 10, 0, 0))
+        bar_frame.grid(row=1, column=0, sticky="ew")
+        bar_frame.columnconfigure(0, weight=1)
+        bar_frame.columnconfigure(1, weight=1)
+
+        self.BAR_WIDTH = 200
+        self.BAR_HEIGHT = 20
+
+        self.accuracy_canvas = tk.Canvas(
+            bar_frame,
+            width=self.BAR_WIDTH,
+            height=self.BAR_HEIGHT,
+            bg="#0f172a",
+            highlightthickness=0,
+        )
+        self.accuracy_canvas.grid(row=0, column=0, padx=(0, 12), sticky="w")
+        self.accuracy_canvas.create_rectangle(
+            1,
+            1,
+            self.BAR_WIDTH - 1,
+            self.BAR_HEIGHT - 1,
+            outline="#475569",
+            width=2,
+        )
+        self.accuracy_bar_fill = self.accuracy_canvas.create_rectangle(
+            2,
+            2,
+            2,
+            self.BAR_HEIGHT - 2,
+            fill="#fb7185",
+            width=0,
+        )
+        self.accuracy_bar_text = self.accuracy_canvas.create_text(
+            self.BAR_WIDTH / 2,
+            self.BAR_HEIGHT / 2,
+            text="오차 0.0%",
+            fill="#f8fafc",
+            font=self.bar_font,
+        )
+
+        self.wpm_canvas = tk.Canvas(
+            bar_frame,
+            width=self.BAR_WIDTH,
+            height=self.BAR_HEIGHT,
+            bg="#0f172a",
+            highlightthickness=0,
+        )
+        self.wpm_canvas.grid(row=0, column=1, padx=(12, 0), sticky="e")
+        self.wpm_canvas.create_rectangle(
+            1,
+            1,
+            self.BAR_WIDTH - 1,
+            self.BAR_HEIGHT - 1,
+            outline="#475569",
+            width=2,
+        )
+        self.wpm_bar_fill = self.wpm_canvas.create_rectangle(
+            2,
+            2,
+            2,
+            self.BAR_HEIGHT - 2,
+            fill="#38bdf8",
+            width=0,
+        )
+        self.wpm_bar_text = self.wpm_canvas.create_text(
+            self.BAR_WIDTH / 2,
+            self.BAR_HEIGHT / 2,
+            text="000",
+            fill="#f8fafc",
+            font=self.bar_font,
+        )
 
         self.canvas = tk.Canvas(
             container,
@@ -119,7 +189,7 @@ class TypingBattleGame:
             bg="#1f1b2d",
             highlightthickness=0,
         )
-        self.canvas.grid(row=1, column=0, sticky="ew", pady=(12, 12))
+        self.canvas.grid(row=2, column=0, sticky="ew", pady=(12, 12))
 
         self.player_circle = self.canvas.create_oval(
             self.PLAYER_POS[0],
@@ -155,14 +225,14 @@ class TypingBattleGame:
         )
 
         typing_frame = ttk.Frame(container, padding=(0, 8))
-        typing_frame.grid(row=2, column=0, sticky="ew")
+        typing_frame.grid(row=3, column=0, sticky="ew")
         typing_frame.columnconfigure(0, weight=1)
 
         self.current_line_display = tk.Text(
             typing_frame,
             width=40,
-            height=2,
-            font=("Nanum Gothic", 20, "bold"),
+            height=3,
+            font=self.line_font,
             bg="#111025",
             fg="#f4f4f5",
             relief="flat",
@@ -172,48 +242,21 @@ class TypingBattleGame:
         self.current_line_display.tag_configure("current", foreground="#facc15")
         self.current_line_display.tag_configure("pending", foreground="#a5b4fc")
         self.current_line_display.tag_configure("align", justify="center")
+        self.current_line_display.tag_configure("bottom_line", font=self.bottom_font, foreground="#fef08a")
+        self.current_line_display.tag_configure("bottom_typed", foreground="#facc15")
+        self.current_line_display.tag_configure("bottom_wrong", foreground="#f87171")
+        self.current_line_display.tag_configure("transition_old", foreground="#94a3b8")
         self.current_line_display.configure(state="disabled")
         self.current_line_display.grid(row=0, column=0, sticky="ew")
 
-        self.karaoke_display = tk.Text(
-            typing_frame,
-            width=40,
-            height=2,
-            font=("Nanum Gothic", 18, "bold"),
-            bg="#14122d",
-            fg="#fef08a",
-            relief="flat",
-            wrap="char",
-        )
-        self.karaoke_display.tag_configure("typed", foreground="#facc15")
-        self.karaoke_display.tag_configure("wrong", foreground="#f87171")
-        self.karaoke_display.tag_configure("align", justify="center")
-        self.karaoke_display.configure(state="disabled")
-        self.karaoke_display.grid(row=1, column=0, sticky="ew", pady=(6, 0))
-
-        self.next_line_label = ttk.Label(
-            typing_frame,
-            text="",
-            style="Small.TLabel",
-            foreground="#737373",
-            anchor="center",
-        )
-        self.next_line_label.grid(row=2, column=0, sticky="ew", pady=(6, 0))
-
-        entry_frame = ttk.Frame(container, padding=(0, 4))
-        entry_frame.grid(row=3, column=0, sticky="ew")
-        entry_frame.columnconfigure(0, weight=1)
-
         self.entry_var = tk.StringVar()
         self.entry = ttk.Entry(
-            entry_frame,
+            container,
             width=16,
             textvariable=self.entry_var,
-            font=("Nanum Gothic", 18, "bold"),
-            justify="center",
+            font=self.line_font,
         )
-        self.entry.grid(row=0, column=0, pady=(0, 8))
-
+        self.entry.place(x=-1000, y=-1000)
         self.entry.focus_set()
 
         self.entry_var.trace_add("write", self._on_entry_change)
@@ -223,14 +266,6 @@ class TypingBattleGame:
 
         self.reset_button = ttk.Button(button_frame, text="다시 시작", command=self._reset_game_state)
         self.reset_button.grid(row=0, column=0, padx=8)
-
-        self.status_label = ttk.Label(
-            container,
-            text="한 글자씩 정확하게 입력하면 보스에게 미사일이 발사됩니다!",
-            style="Status.TLabel",
-            padding=(0, 12, 0, 0),
-        )
-        self.status_label.grid(row=5, column=0, sticky="ew")
 
     def _reset_game_state(self) -> None:
         self._build_state()
@@ -297,6 +332,9 @@ class TypingBattleGame:
         if self._is_composing_char(ch):
             return False
 
+        if ch.strip() == "" and expected != " ":
+            return False
+
         self.total_inputs += 1
 
         if ch == expected:
@@ -308,20 +346,38 @@ class TypingBattleGame:
             return True
 
     def _handle_correct_input(self) -> None:
+        if self.current_index < self.total_chars:
+            previous_line_idx = self.char_meta[self.current_index][0]
+            previous_line_text = ANTHEM_LINES[previous_line_idx]
+        else:
+            previous_line_idx = len(ANTHEM_LINES) - 1
+            previous_line_text = ANTHEM_LINES[previous_line_idx]
+
         self.current_index += 1
         self.boss_hp = max(0.0, self.boss_hp - self.boss_damage_per_hit)
         self._update_stat_labels()
-        self._update_line_display()
+
+        line_changed = False
+        if self.current_index < self.total_chars:
+            current_line_idx = self.char_meta[self.current_index][0]
+            line_changed = current_line_idx != previous_line_idx
+        else:
+            current_line_idx = previous_line_idx
+
+        if line_changed:
+            self._update_line_display(
+                line_override=previous_line_text,
+                typed_len_override=len(previous_line_text),
+            )
+            self.current_line_index = current_line_idx
+            self._line_transition_animation(previous_line_text)
+        else:
+            self._update_line_display()
+
         self._animate_missile()
 
         if self.current_index >= self.total_chars:
             self._finish_game(victory=True)
-        else:
-            previous_line_idx = self.char_meta[self.current_index - 1][0]
-            current_line_idx = self.char_meta[self.current_index][0]
-            if current_line_idx != previous_line_idx:
-                self.current_line_index = current_line_idx
-                self._line_transition_animation()
 
     def _handle_wrong_input(self, ch: str, expected: str) -> None:
         self._update_stat_labels()
@@ -330,8 +386,7 @@ class TypingBattleGame:
             text=f"틀렸습니다! 입력 - '{ch}' / 목표 - '{expected}'"
         )
 
-        _, current_line, typed_len, _ = self._get_line_state()
-        self._set_karaoke_text(current_line, typed_len, wrong_char=ch)
+        self._update_line_display(wrong_char=ch)
 
     def _update_stat_labels(self) -> None:
         remaining_hits = self.total_chars - self.current_index
@@ -340,7 +395,7 @@ class TypingBattleGame:
             text=f"보스 체력 - {remaining_hits}/{self.total_chars} ({boss_percent:0.1f}%)"
         )
         accuracy = 100.0 if self.total_inputs == 0 else (self.correct_inputs / self.total_inputs) * 100.0
-        self.accuracy_label.configure(text=f"정확도 - {accuracy:0.1f}%")
+        self._draw_accuracy_bar(accuracy)
 
     def _update_wpm(self, elapsed: float) -> None:
         if elapsed <= 0.0:
@@ -348,7 +403,39 @@ class TypingBattleGame:
         else:
             characters_per_minute = (self.correct_inputs / elapsed) * 60.0
             self.wpm = characters_per_minute
-        self.wpm_label.configure(text=f"분당 타수 - {self.wpm:0.1f}")
+        self._draw_wpm_bar(self.wpm)
+
+    def _draw_accuracy_bar(self, accuracy: float) -> None:
+        error = max(0.0, 100.0 - accuracy)
+        fraction = min(error / 100.0, 1.0)
+        fill_width = 2 + (self.BAR_WIDTH - 4) * fraction
+        self.accuracy_canvas.coords(
+            self.accuracy_bar_fill,
+            2,
+            2,
+            fill_width,
+            self.BAR_HEIGHT - 2,
+        )
+        self.accuracy_canvas.itemconfig(
+            self.accuracy_bar_text,
+            text=f"오차 {error:0.1f}%",
+        )
+
+    def _draw_wpm_bar(self, wpm: float) -> None:
+        capped = min(max(wpm, 0.0), 800.0)
+        fraction = capped / 800.0
+        fill_width = 2 + (self.BAR_WIDTH - 4) * fraction
+        self.wpm_canvas.coords(
+            self.wpm_bar_fill,
+            2,
+            2,
+            fill_width,
+            self.BAR_HEIGHT - 2,
+        )
+        self.wpm_canvas.itemconfig(
+            self.wpm_bar_text,
+            text=f"{int(round(capped)):03d}",
+        )
 
     def _get_line_state(self) -> tuple[int, str, int, str]:
         if self.current_index >= self.total_chars:
@@ -360,66 +447,64 @@ class TypingBattleGame:
             next_line = ANTHEM_LINES[idx + 1] if idx + 1 < len(ANTHEM_LINES) else ""
         return idx, ANTHEM_LINES[idx], typed_len, next_line
 
-    def _update_line_display(self) -> None:
-        line_idx, current_line, typed_len, next_line = self._get_line_state()
+    def _update_line_display(
+        self,
+        wrong_char: str | None = None,
+        line_override: str | None = None,
+        typed_len_override: int | None = None,
+    ) -> None:
+        line_idx, current_line, typed_len, _ = self._get_line_state()
         self.current_line_index = line_idx
 
-        typed_text = current_line[:typed_len]
-        remaining_text = current_line[typed_len:]
+        if line_override is not None:
+            current_line = line_override
+        if typed_len_override is not None:
+            typed_len = typed_len_override
 
         self.current_line_display.configure(state="normal")
         self.current_line_display.delete("1.0", "end")
-        self.current_line_display.tag_remove("typed", "1.0", "end")
-        self.current_line_display.tag_remove("current", "1.0", "end")
-        self.current_line_display.tag_remove("pending", "1.0", "end")
-        self.current_line_display.tag_remove("align", "1.0", "end")
+        self.current_line_display.insert("1.0", current_line)
+        self.current_line_display.insert("end", "\n")
 
-        self.current_line_display.insert("1.0", typed_text)
-        self.current_line_display.insert("end", remaining_text)
-        self.current_line_display.tag_add("align", "1.0", "end")
+        bottom_chars = [" "] * len(current_line)
+        for idx in range(min(typed_len, len(current_line))):
+            bottom_chars[idx] = current_line[idx]
+        if wrong_char and typed_len < len(bottom_chars):
+            bottom_chars[typed_len] = wrong_char
+        self.current_line_display.insert("end", "".join(bottom_chars))
 
-        if typed_text:
-            self.current_line_display.tag_add("typed", "1.0", f"1.0 + {len(typed_text)}c")
-        if remaining_text:
+        self.current_line_display.tag_remove("typed", "1.0", "2.0")
+        self.current_line_display.tag_remove("current", "1.0", "2.0")
+        self.current_line_display.tag_remove("pending", "1.0", "2.0")
+        self.current_line_display.tag_remove("bottom_line", "2.0", "3.0")
+        self.current_line_display.tag_remove("bottom_typed", "2.0", "3.0")
+        self.current_line_display.tag_remove("bottom_wrong", "2.0", "3.0")
+        self.current_line_display.tag_remove("transition_old", "1.0", "3.0")
+
+        self.current_line_display.tag_add("align", "1.0", "2.0")
+        self.current_line_display.tag_add("align", "2.0", "3.0")
+        self.current_line_display.tag_add("bottom_line", "2.0", "3.0")
+
+        if typed_len > 0:
+            self.current_line_display.tag_add("typed", "1.0", f"1.0 + {typed_len}c")
+            self.current_line_display.tag_add("bottom_typed", "2.0", f"2.0 + {typed_len}c")
+
+        if typed_len < len(current_line):
             self.current_line_display.tag_add(
-                "current", f"1.0 + {len(typed_text)}c", f"1.0 + {len(typed_text) + 1}c"
+                "current", f"1.0 + {typed_len}c", f"1.0 + {typed_len + 1}c"
             )
             self.current_line_display.tag_add(
-                "pending", f"1.0 + {len(typed_text) + 1}c", "end"
+                "pending", f"1.0 + {typed_len + 1}c", "1.0 lineend"
+            )
+
+        if wrong_char and typed_len < len(current_line):
+            self.current_line_display.tag_add(
+                "bottom_wrong",
+                f"2.0 + {typed_len}c",
+                f"2.0 + {typed_len + 1}c",
             )
 
         self.current_line_display.configure(state="disabled")
-
-        self._set_karaoke_text(current_line, typed_len)
-
-        self.next_line_label.configure(
-            text=f"다음 - {next_line}" if next_line else "다음 줄 없음"
-        )
-
-    def _set_karaoke_text(self, current_line: str, typed_len: int, wrong_char: str | None = None) -> None:
-        display_chars = [" " for _ in current_line]
-        for idx in range(min(typed_len, len(current_line))):
-            display_chars[idx] = current_line[idx]
-        if wrong_char and typed_len < len(display_chars):
-            display_chars[typed_len] = wrong_char
-
-        display_text = "".join(display_chars)
-
-        self.karaoke_display.configure(state="normal")
-        self.karaoke_display.delete("1.0", "end")
-        self.karaoke_display.insert("1.0", display_text)
-        self.karaoke_display.tag_add("align", "1.0", "end")
-
-        if typed_len > 0:
-            self.karaoke_display.tag_add("typed", "1.0", f"1.0 + {typed_len}c")
-        if wrong_char and typed_len < len(display_chars):
-            self.karaoke_display.tag_add(
-                "wrong",
-                f"1.0 + {typed_len}c",
-                f"1.0 + {typed_len + 1}c",
-            )
-
-        self.karaoke_display.configure(state="disabled")
 
     def _animate_missile(self) -> None:
         start_x = (self.PLAYER_POS[0] + self.PLAYER_POS[2]) // 2
@@ -485,30 +570,41 @@ class TypingBattleGame:
 
         move()
 
-    def _line_transition_animation(self) -> None:
+    def _line_transition_animation(self, previous_line_text: str) -> None:
         if self.current_index >= self.total_chars:
+            self._update_line_display()
             return
 
-        line_text = ANTHEM_LINES[self.current_line_index]
-        spins = 10
-        duration = 20
+        _, next_line_text, _, _ = self._get_line_state()
 
-        self._set_karaoke_text(line_text, 0)
+        self.current_line_display.configure(state="normal")
+        self.current_line_display.delete("1.0", "end")
+        self.current_line_display.insert("1.0", previous_line_text)
+        self.current_line_display.insert("end", "\n")
+        self.current_line_display.insert("end", next_line_text)
+        self.current_line_display.insert("end", "\n")
+        self.current_line_display.insert("end", " " * len(next_line_text))
 
-        def spin(step: int = 0) -> None:
-            if step >= spins or self.game_over:
-                self._update_line_display()
+        self.current_line_display.tag_remove("typed", "1.0", "end")
+        self.current_line_display.tag_remove("current", "1.0", "end")
+        self.current_line_display.tag_remove("pending", "1.0", "end")
+        self.current_line_display.tag_remove("bottom_line", "1.0", "end")
+        self.current_line_display.tag_remove("bottom_typed", "1.0", "end")
+        self.current_line_display.tag_remove("bottom_wrong", "1.0", "end")
+        self.current_line_display.tag_remove("align", "1.0", "end")
+
+        self.current_line_display.tag_add("align", "1.0", "3.0")
+        self.current_line_display.tag_add("transition_old", "1.0", "1.0 lineend")
+        self.current_line_display.tag_add("bottom_line", "3.0", "3.0 lineend")
+
+        self.current_line_display.configure(state="disabled")
+
+        def finalize() -> None:
+            if self.game_over:
                 return
-            shift = step % len(line_text) if line_text else 0
-            rotated = line_text[shift:] + line_text[:shift] if line_text else ""
-            self.current_line_display.configure(state="normal")
-            self.current_line_display.delete("1.0", "end")
-            self.current_line_display.insert("1.0", rotated)
-            self.current_line_display.tag_add("align", "1.0", "end")
-            self.current_line_display.configure(state="disabled")
-            self.root.after(duration, spin, step + 1)
+            self._update_line_display()
 
-        spin()
+        self.root.after(220, finalize)
 
     def _is_composing_char(self, ch: str) -> bool:
         if not ch:

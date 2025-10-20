@@ -83,21 +83,23 @@ class TypingBattleGame:
 
         top_frame = ttk.Frame(container)
         top_frame.grid(row=0, column=0, sticky="ew")
+        top_frame.columnconfigure(0, weight=1)
         top_frame.columnconfigure(1, weight=1)
-
-        self.timer_label = ttk.Label(top_frame, text="시간: 0.00초", style="Info.TLabel")
-        self.timer_label.grid(row=0, column=0, sticky="w")
+        top_frame.columnconfigure(2, weight=1)
 
         self.player_hp_label = ttk.Label(
             top_frame,
-            text=f"내 체력: {self.player_hp}/{self.PLAYER_MAX_HP}",
+            text=f"내 체력 - {self.player_hp}/{self.PLAYER_MAX_HP}",
             style="Info.TLabel",
         )
-        self.player_hp_label.grid(row=0, column=1, sticky="n")
+        self.player_hp_label.grid(row=0, column=0, sticky="w")
+
+        self.timer_label = ttk.Label(top_frame, text="시간 - 0.00초", style="Info.TLabel", anchor="center")
+        self.timer_label.grid(row=0, column=1, sticky="ew")
 
         self.boss_hp_label = ttk.Label(
             top_frame,
-            text=f"보스 체력: {self.total_chars - self.current_index}/{self.total_chars} (100.0%)",
+            text=f"보스 체력 - {self.total_chars - self.current_index}/{self.total_chars} (100.0%)",
             style="Info.TLabel",
         )
         self.boss_hp_label.grid(row=0, column=2, sticky="e")
@@ -223,7 +225,7 @@ class TypingBattleGame:
             elapsed = 0.0
         else:
             elapsed = time.perf_counter() - self.start_time
-        self.timer_label.configure(text=f"시간: {elapsed:0.2f}초")
+        self.timer_label.configure(text=f"시간 - {elapsed:0.2f}초")
         self.root.after(50, self._update_timer)
 
     def _on_entry_change(self, *_args) -> None:
@@ -277,7 +279,7 @@ class TypingBattleGame:
         self._update_hp_labels()
         self._flash_player()
         self.status_label.configure(
-            text=f"틀렸습니다! 입력: '{ch}' / 목표: '{expected}'"
+            text=f"틀렸습니다! 입력 - '{ch}' / 목표 - '{expected}'"
         )
 
         if self.player_hp <= 0:
@@ -287,10 +289,10 @@ class TypingBattleGame:
         remaining_hits = self.total_chars - self.current_index
         boss_percent = max(0.0, self.boss_hp)
         self.boss_hp_label.configure(
-            text=f"보스 체력: {remaining_hits}/{self.total_chars} ({boss_percent:0.1f}%)"
+            text=f"보스 체력 - {remaining_hits}/{self.total_chars} ({boss_percent:0.1f}%)"
         )
         self.player_hp_label.configure(
-            text=f"내 체력: {self.player_hp}/{self.PLAYER_MAX_HP}"
+            text=f"내 체력 - {self.player_hp}/{self.PLAYER_MAX_HP}"
         )
 
     def _update_line_display(self, initial: bool = False) -> None:
@@ -333,7 +335,7 @@ class TypingBattleGame:
         self.current_line_display.configure(state="disabled")
 
         self.next_line_label.configure(
-            text=f"다음: {next_line}" if next_line else "다음 줄 없음"
+            text=f"다음 - {next_line}" if next_line else "다음 줄 없음"
         )
 
     def _animate_missile(self) -> None:

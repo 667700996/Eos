@@ -38,7 +38,7 @@ class TypingBattleGame:
 
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
-        self.root.title("한컴 타자 - 애국가 보스전")
+        self.root.title("Eos")
         self.root.resizable(False, False)
 
         style = ttk.Style()

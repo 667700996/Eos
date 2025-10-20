@@ -65,6 +65,7 @@ class TypingBattleGame:
 
     def _build_state(self) -> None:
         self.boss_hp = 100.0
+        self.prev_boss_percent = 100.0
         self.current_index = 0
         self.current_line_index = 0
         self.game_over = False
@@ -87,9 +88,8 @@ class TypingBattleGame:
         hp_frame = ttk.Frame(container, padding=(0, 0, 0, 6))
         hp_frame.grid(row=0, column=0, sticky="ew")
         hp_frame.columnconfigure(0, weight=1)
-        hp_frame.columnconfigure(1, weight=0)
 
-        self.HP_BAR_WIDTH = 360
+        self.HP_BAR_WIDTH = self.CANVAS_WIDTH
         self.HP_BAR_HEIGHT = 22
         self.hp_canvas = tk.Canvas(
             hp_frame,
@@ -115,14 +115,13 @@ class TypingBattleGame:
             fill="#ef4444",
             width=0,
         )
-
-        self.hp_percent_label = ttk.Label(
-            hp_frame,
+        self.hp_percent_text = self.hp_canvas.create_text(
+            self.HP_BAR_WIDTH / 2,
+            self.HP_BAR_HEIGHT / 2,
             text="보스 체력 100.0%",
-            style="Info.TLabel",
-            anchor="e",
+            fill="#fee2e2",
+            font=("Nanum Gothic", 12, "bold"),
         )
-        self.hp_percent_label.grid(row=0, column=1, padx=(12, 0))
 
         self.canvas = tk.Canvas(
             container,
@@ -131,7 +130,7 @@ class TypingBattleGame:
             bg="#1f1b2d",
             highlightthickness=0,
         )
-        self.canvas.grid(row=1, column=0, sticky="ew", pady=(6, 12))
+        self.canvas.grid(row=1, column=0, sticky="ew", pady=(6, 6))
 
         self.player_circle = self.canvas.create_oval(
             self.PLAYER_POS[0],
@@ -172,7 +171,7 @@ class TypingBattleGame:
         self.boss_label_base = self.canvas.coords(self.boss_label)
 
         typing_frame = ttk.Frame(container, padding=(0, 8))
-        typing_frame.grid(row=1, column=0, sticky="ew")
+        typing_frame.grid(row=2, column=0, sticky="ew")
         typing_frame.columnconfigure(0, weight=1)
 
         self.current_line_display = tk.Text(
@@ -198,19 +197,19 @@ class TypingBattleGame:
 
         self.entry_var = tk.StringVar()
         self.entry = tk.Entry(
-            container,
+            typing_frame,
             textvariable=self.entry_var,
             font=self.line_font,
             justify="center",
             relief="flat",
         )
-        self.entry.place(relx=0.5, rely=0.83, anchor="center", width=360, height=46)
+        self.entry.grid(row=1, column=0, pady=(8, 0), padx=60, sticky="ew")
         self.entry.focus_set()
 
         self.entry_var.trace_add("write", self._on_entry_change)
 
         info_frame = ttk.Frame(container, padding=(0, 4, 0, 0))
-        info_frame.grid(row=2, column=0, sticky="ew", pady=(4, 0))
+        info_frame.grid(row=3, column=0, sticky="ew", pady=(4, 0))
         info_frame.columnconfigure(0, weight=1)
         info_frame.columnconfigure(1, weight=1)
 
@@ -223,7 +222,7 @@ class TypingBattleGame:
         self.result_label.grid(row=0, column=1, sticky="e")
 
         button_frame = ttk.Frame(container, padding=(0, 4))
-        button_frame.grid(row=3, column=0, sticky="e")
+        button_frame.grid(row=4, column=0, sticky="e")
 
         self.reset_button = ttk.Button(button_frame, text="다시 시작", command=self._reset_game_state)
         self.reset_button.grid(row=0, column=0, padx=8)
@@ -347,7 +346,19 @@ class TypingBattleGame:
             fill_width,
             self.HP_BAR_HEIGHT - 2,
         )
-        self.hp_percent_label.configure(text=f"보스 체력 {boss_percent:0.1f}%")
+        self.hp_canvas.itemconfig(
+            self.hp_percent_text,
+            text=f"보스 체력 {boss_percent:0.1f}%",
+        )
+        if boss_percent < self.prev_boss_percent and not self.game_over:
+            self._flash_hp_bar()
+        self.prev_boss_percent = boss_percent
+
+    def _flash_hp_bar(self) -> None:
+        original_fill = "#ef4444"
+        flash_fill = "#fca5a5"
+        self.hp_canvas.itemconfig(self.hp_bar_fill, fill=flash_fill)
+        self.hp_canvas.after(120, lambda: self.hp_canvas.itemconfig(self.hp_bar_fill, fill=original_fill))
     def _get_line_state(self) -> tuple[int, str, int, str]:
         if self.current_index >= self.total_chars:
             idx = len(ANTHEM_LINES) - 1

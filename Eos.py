@@ -57,14 +57,13 @@ class TypingBattleGame:
         self.current_index = 0
         self.current_line_index = 0
         self.game_over = False
-        self.ignore_entry_update = False
-        self.player_base_coords: list[float] | None = None
-        self.boss_base_coords: list[float] | None = None
-        self.player_label_base: list[float] | None = None
-        self.boss_label_base: list[float] | None = None
+        self.player_base_coords = None
+        self.boss_base_coords = None
+        self.player_label_base = None
+        self.boss_label_base = None
         self.player_offset = (0.0, 0.0)
         self.boss_offset = (0.0, 0.0)
-        self._jiggle_job: str | None = None
+        self._jiggle_job = None
 
     def _build_widgets(self) -> None:
         container = ttk.Frame(self.root, padding=16)
@@ -205,6 +204,8 @@ class TypingBattleGame:
 
         self._update_line_display()
 
+        self.entry.configure(state="normal")
+        self.entry.delete(0, tk.END)
         self.entry.focus_set()
 
         self.canvas.itemconfig(self.player_circle, fill="#172554")
@@ -225,6 +226,8 @@ class TypingBattleGame:
         if not ch:
             return
         self._process_input_char(ch)
+        event.widget.delete(0, tk.END)
+        return "break"
 
     def _process_input_char(self, ch: str) -> bool:
         if not ch or ch == "\r" or ch == "\n":
@@ -326,9 +329,9 @@ class TypingBattleGame:
 
     def _update_line_display(
         self,
-        wrong_char: str | None = None,
-        line_override: str | None = None,
-        typed_len_override: int | None = None,
+        wrong_char=None,
+        line_override=None,
+        typed_len_override=None,
     ) -> None:
         line_idx, current_line, typed_len, _ = self._get_line_state()
         self.current_line_index = line_idx
@@ -350,60 +353,67 @@ class TypingBattleGame:
             bottom_chars[typed_len] = wrong_char
         self.current_line_display.insert("end", "".join(bottom_chars))
 
-        self.current_line_display.delete("text")
-        width = self.current_line_display.winfo_width() or self.CANVAS_WIDTH
-        x_center = width / 2
-        y_top = 28
-        y_bottom = 70
+        canvas = self.current_line_display
+        canvas.delete("all")
+        canvas.update_idletasks()
+        width = canvas.winfo_width() or self.CANVAS_WIDTH
+        height = canvas.winfo_height() or 110
 
-        full_text = current_line
-        typed_text = full_text[: typed_len]
-        remaining_text = full_text[typed_len:]
+        canvas.create_rectangle(0, 0, width, height, fill="#111025", outline="")
 
-        display_text = typed_text
-        if remaining_text:
-            display_text += remaining_text[0]
-        self.current_line_display.create_text(
-            x_center,
-            y_top,
-            text=display_text,
-            fill="#34d399",
-            font=self.line_font,
-            tags=("text",),
-            anchor="center",
-        )
-        if remaining_text:
-            pending_text = remaining_text[1:]
-            if pending_text:
-                self.current_line_display.create_text(
-                    x_center,
-                    y_top,
-                    text=pending_text,
-                    fill="#a5b4fc",
-                    font=self.line_font,
-                    tags=("text",),
-                    anchor="center",
-                )
+        typed_len = max(0, min(typed_len, len(current_line)))
 
-        bottom_chars = []
+        char_widths = [self.line_font.measure(ch) for ch in current_line]
+        total_width = sum(char_widths)
+        if total_width <= 0:
+            total_width = self.line_font.measure(" ")
+
+        x_start = (width - total_width) / 2
+        top_y = 28
+        bottom_y = 72
+
+        positions = []
+        current_x = x_start
+        for w in char_widths:
+            positions.append(current_x)
+            current_x += w if w else self.line_font.measure(" ")
+
         for idx, ch in enumerate(current_line):
             if idx < typed_len:
-                bottom_chars.append(ch)
-            elif idx == typed_len and wrong_char:
-                bottom_chars.append(wrong_char)
+                color = "#34d399"
+            elif idx == typed_len:
+                color = "#facc15"
             else:
-                bottom_chars.append("_")
-        bottom_text = "".join(bottom_chars)
+                color = "#a5b4fc"
+            canvas.create_text(
+                positions[idx],
+                top_y,
+                text=ch,
+                fill=color,
+                font=self.line_font,
+                tags=("text",),
+                anchor="nw",
+            )
 
-        self.current_line_display.create_text(
-            x_center,
-            y_bottom,
-            text=bottom_text,
-            fill="#fef08a",
-            font=self.bottom_font,
-            tags=("text",),
-            anchor="center",
-        )
+        for idx, ch in enumerate(current_line):
+            if idx < typed_len:
+                text_char = ch
+                color = "#fef08a"
+            elif idx == typed_len and wrong_char:
+                text_char = wrong_char
+                color = "#f87171"
+            else:
+                text_char = "·"
+                color = "#475569"
+            canvas.create_text(
+                positions[idx],
+                bottom_y,
+                text=text_char,
+                fill=color,
+                font=self.bottom_font,
+                tags=("text",),
+                anchor="nw",
+            )
 
     def _apply_entity_offsets(
         self, player_offset: tuple[float, float], boss_offset: tuple[float, float]
@@ -527,41 +537,42 @@ class TypingBattleGame:
 
         move()
 
-    def _line_transition_animation(self, previous_line_text: str) -> None:
+    def _line_transition_animation(self, previous_line_text) -> None:
         if self.current_index >= self.total_chars:
             self._update_line_display()
             return
 
-        _, next_line_text, _, _ = self._get_line_state()
-
-        self.current_line_display.configure(state="normal")
-        self.current_line_display.delete("1.0", "end")
-        self.current_line_display.insert("1.0", previous_line_text)
-        self.current_line_display.insert("end", "\n")
-        self.current_line_display.insert("end", next_line_text)
-        self.current_line_display.insert("end", "\n")
-        self.current_line_display.insert("end", " " * len(next_line_text))
-
-        self.current_line_display.tag_remove("typed", "1.0", "end")
-        self.current_line_display.tag_remove("current", "1.0", "end")
-        self.current_line_display.tag_remove("pending", "1.0", "end")
-        self.current_line_display.tag_remove("bottom_line", "1.0", "end")
-        self.current_line_display.tag_remove("bottom_typed", "1.0", "end")
-        self.current_line_display.tag_remove("bottom_wrong", "1.0", "end")
-        self.current_line_display.tag_remove("align", "1.0", "end")
-
-        self.current_line_display.tag_add("align", "1.0", "3.0")
-        self.current_line_display.tag_add("transition_old", "1.0", "1.0 lineend")
-        self.current_line_display.tag_add("bottom_line", "3.0", "3.0 lineend")
-
-        self.current_line_display.configure(state="disabled")
+        canvas = self.current_line_display
+        canvas.delete("all")
+        canvas.update_idletasks()
+        width = canvas.winfo_width() or self.CANVAS_WIDTH
+        height = canvas.winfo_height() or 110
+        canvas.create_rectangle(0, 0, width, height, fill="#111025", outline="")
+        canvas.create_text(
+            width / 2,
+            28,
+            text=previous_line_text,
+            fill="#94a3b8",
+            font=self.line_font,
+            anchor="center",
+            tags=("text",),
+        )
+        canvas.create_text(
+            width / 2,
+            72,
+            text="·" * len(previous_line_text),
+            fill="#475569",
+            font=self.bottom_font,
+            anchor="center",
+            tags=("text",),
+        )
 
         def finalize() -> None:
             if self.game_over:
                 return
             self._update_line_display()
 
-        self.root.after(220, finalize)
+        self.root.after(160, finalize)
 
     def _is_composing_char(self, ch: str) -> bool:
         if not ch:
@@ -592,6 +603,7 @@ class TypingBattleGame:
 
     def _finish_game(self, victory: bool) -> None:
         self.game_over = True
+        self.entry.delete(0, tk.END)
         self.entry.configure(state="disabled")
         if victory:
             self.result_label.configure(

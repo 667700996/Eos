@@ -4,6 +4,7 @@
 틀리는 즉시 플레이어가 피해를 입습니다.
 """
 
+import random
 import time
 import tkinter as tk
 from tkinter import ttk, font
@@ -71,10 +72,6 @@ class TypingBattleGame:
         self.game_over = False
         self.start_time = None
 
-        self.correct_inputs = 0
-        self.total_inputs = 0
-        self.wpm = 0.0
-
         self.ignore_entry_update = False
 
     def _build_widgets(self) -> None:
@@ -83,16 +80,10 @@ class TypingBattleGame:
 
         self.line_font = font.Font(family="Nanum Gothic", size=20, weight="bold")
         self.bottom_font = font.Font(family="Nanum Gothic", size=18, weight="bold")
-        self.bar_font = font.Font(family="Nanum Gothic", size=11, weight="bold")
 
         top_frame = ttk.Frame(container)
         top_frame.grid(row=0, column=0, sticky="ew")
         top_frame.columnconfigure(0, weight=1)
-        top_frame.columnconfigure(1, weight=1)
-        top_frame.columnconfigure(2, weight=1)
-
-        self.timer_label = ttk.Label(top_frame, text="시간 - 0.00초", style="Info.TLabel", anchor="w")
-        self.timer_label.grid(row=0, column=0, sticky="w")
 
         self.boss_hp_label = ttk.Label(
             top_frame,
@@ -100,87 +91,7 @@ class TypingBattleGame:
             style="Info.TLabel",
             anchor="center",
         )
-        self.boss_hp_label.grid(row=0, column=1, sticky="n")
-
-        self.status_label = ttk.Label(
-            top_frame,
-            text="한 글자씩 정확하게 입력하면 보스에게 미사일이 발사됩니다!",
-            style="Status.TLabel",
-            anchor="e",
-        )
-        self.status_label.grid(row=0, column=2, sticky="e")
-
-        bar_frame = ttk.Frame(container, padding=(0, 10, 0, 0))
-        bar_frame.grid(row=1, column=0, sticky="ew")
-        bar_frame.columnconfigure(0, weight=1)
-        bar_frame.columnconfigure(1, weight=1)
-
-        self.BAR_WIDTH = 200
-        self.BAR_HEIGHT = 20
-
-        self.accuracy_canvas = tk.Canvas(
-            bar_frame,
-            width=self.BAR_WIDTH,
-            height=self.BAR_HEIGHT,
-            bg="#0f172a",
-            highlightthickness=0,
-        )
-        self.accuracy_canvas.grid(row=0, column=0, padx=(0, 12), sticky="w")
-        self.accuracy_canvas.create_rectangle(
-            1,
-            1,
-            self.BAR_WIDTH - 1,
-            self.BAR_HEIGHT - 1,
-            outline="#475569",
-            width=2,
-        )
-        self.accuracy_bar_fill = self.accuracy_canvas.create_rectangle(
-            2,
-            2,
-            2,
-            self.BAR_HEIGHT - 2,
-            fill="#fb7185",
-            width=0,
-        )
-        self.accuracy_bar_text = self.accuracy_canvas.create_text(
-            self.BAR_WIDTH / 2,
-            self.BAR_HEIGHT / 2,
-            text="오차 0.0%",
-            fill="#f8fafc",
-            font=self.bar_font,
-        )
-
-        self.wpm_canvas = tk.Canvas(
-            bar_frame,
-            width=self.BAR_WIDTH,
-            height=self.BAR_HEIGHT,
-            bg="#0f172a",
-            highlightthickness=0,
-        )
-        self.wpm_canvas.grid(row=0, column=1, padx=(12, 0), sticky="e")
-        self.wpm_canvas.create_rectangle(
-            1,
-            1,
-            self.BAR_WIDTH - 1,
-            self.BAR_HEIGHT - 1,
-            outline="#475569",
-            width=2,
-        )
-        self.wpm_bar_fill = self.wpm_canvas.create_rectangle(
-            2,
-            2,
-            2,
-            self.BAR_HEIGHT - 2,
-            fill="#38bdf8",
-            width=0,
-        )
-        self.wpm_bar_text = self.wpm_canvas.create_text(
-            self.BAR_WIDTH / 2,
-            self.BAR_HEIGHT / 2,
-            text="000",
-            fill="#f8fafc",
-            font=self.bar_font,
-        )
+        self.boss_hp_label.grid(row=0, column=0, sticky="ew")
 
         self.canvas = tk.Canvas(
             container,
@@ -189,7 +100,7 @@ class TypingBattleGame:
             bg="#1f1b2d",
             highlightthickness=0,
         )
-        self.canvas.grid(row=2, column=0, sticky="ew", pady=(12, 12))
+        self.canvas.grid(row=1, column=0, sticky="ew", pady=(12, 12))
 
         self.player_circle = self.canvas.create_oval(
             self.PLAYER_POS[0],
@@ -225,7 +136,7 @@ class TypingBattleGame:
         )
 
         typing_frame = ttk.Frame(container, padding=(0, 8))
-        typing_frame.grid(row=3, column=0, sticky="ew")
+        typing_frame.grid(row=2, column=0, sticky="ew")
         typing_frame.columnconfigure(0, weight=1)
 
         self.current_line_display = tk.Text(
@@ -261,6 +172,27 @@ class TypingBattleGame:
 
         self.entry_var.trace_add("write", self._on_entry_change)
 
+        info_frame = ttk.Frame(container, padding=(0, 4, 0, 0))
+        info_frame.grid(row=3, column=0, sticky="ew")
+        info_frame.columnconfigure(0, weight=1)
+        info_frame.columnconfigure(1, weight=1)
+
+        self.timer_label = ttk.Label(
+            info_frame,
+            text="시간 - 0.00초",
+            style="Status.TLabel",
+            anchor="w",
+        )
+        self.timer_label.grid(row=0, column=0, sticky="w")
+
+        self.result_label = ttk.Label(
+            info_frame,
+            text="",
+            style="Status.TLabel",
+            anchor="e",
+        )
+        self.result_label.grid(row=0, column=1, sticky="e")
+
         button_frame = ttk.Frame(container, padding=(0, 4))
         button_frame.grid(row=4, column=0, sticky="e")
 
@@ -270,8 +202,7 @@ class TypingBattleGame:
     def _reset_game_state(self) -> None:
         self._build_state()
         self._update_stat_labels()
-        self._update_wpm(0.0)
-        self.status_label.configure(text="타자를 시작하면 전투가 진행됩니다!")
+        self.result_label.configure(text="")
 
         self._update_line_display()
 
@@ -298,7 +229,6 @@ class TypingBattleGame:
     def _update_timer(self) -> None:
         elapsed = 0.0 if self.start_time is None else time.perf_counter() - self.start_time
         self.timer_label.configure(text=f"시간 - {elapsed:0.2f}초")
-        self._update_wpm(elapsed)
         self.root.after(50, self._update_timer)
 
     def _on_entry_change(self, *_args) -> None:
@@ -335,10 +265,7 @@ class TypingBattleGame:
         if ch.strip() == "" and expected != " ":
             return False
 
-        self.total_inputs += 1
-
         if ch == expected:
-            self.correct_inputs += 1
             self._handle_correct_input()
             return True
         else:
@@ -382,10 +309,6 @@ class TypingBattleGame:
     def _handle_wrong_input(self, ch: str, expected: str) -> None:
         self._update_stat_labels()
         self._flash_player()
-        self.status_label.configure(
-            text=f"틀렸습니다! 입력 - '{ch}' / 목표 - '{expected}'"
-        )
-
         self._update_line_display(wrong_char=ch)
 
     def _update_stat_labels(self) -> None:
@@ -394,49 +317,6 @@ class TypingBattleGame:
         self.boss_hp_label.configure(
             text=f"보스 체력 - {remaining_hits}/{self.total_chars} ({boss_percent:0.1f}%)"
         )
-        accuracy = 100.0 if self.total_inputs == 0 else (self.correct_inputs / self.total_inputs) * 100.0
-        self._draw_accuracy_bar(accuracy)
-
-    def _update_wpm(self, elapsed: float) -> None:
-        if elapsed <= 0.0:
-            self.wpm = 0.0
-        else:
-            characters_per_minute = (self.correct_inputs / elapsed) * 60.0
-            self.wpm = characters_per_minute
-        self._draw_wpm_bar(self.wpm)
-
-    def _draw_accuracy_bar(self, accuracy: float) -> None:
-        error = max(0.0, 100.0 - accuracy)
-        fraction = min(error / 100.0, 1.0)
-        fill_width = 2 + (self.BAR_WIDTH - 4) * fraction
-        self.accuracy_canvas.coords(
-            self.accuracy_bar_fill,
-            2,
-            2,
-            fill_width,
-            self.BAR_HEIGHT - 2,
-        )
-        self.accuracy_canvas.itemconfig(
-            self.accuracy_bar_text,
-            text=f"오차 {error:0.1f}%",
-        )
-
-    def _draw_wpm_bar(self, wpm: float) -> None:
-        capped = min(max(wpm, 0.0), 800.0)
-        fraction = capped / 800.0
-        fill_width = 2 + (self.BAR_WIDTH - 4) * fraction
-        self.wpm_canvas.coords(
-            self.wpm_bar_fill,
-            2,
-            2,
-            fill_width,
-            self.BAR_HEIGHT - 2,
-        )
-        self.wpm_canvas.itemconfig(
-            self.wpm_bar_text,
-            text=f"{int(round(capped)):03d}",
-        )
-
     def _get_line_state(self) -> tuple[int, str, int, str]:
         if self.current_index >= self.total_chars:
             idx = len(ANTHEM_LINES) - 1
@@ -509,7 +389,7 @@ class TypingBattleGame:
     def _animate_missile(self) -> None:
         start_x = (self.PLAYER_POS[0] + self.PLAYER_POS[2]) // 2
         start_y = (self.PLAYER_POS[1] + self.PLAYER_POS[3]) // 2
-        missile_radius = 6
+        missile_radius = random.randint(5, 8)
         missile = self.canvas.create_oval(
             start_x - missile_radius,
             start_y - missile_radius,
@@ -522,16 +402,22 @@ class TypingBattleGame:
         target_x = (self.BOSS_POS[0] + self.BOSS_POS[2]) // 2
         target_y = (self.BOSS_POS[1] + self.BOSS_POS[3]) // 2
 
+        horizontal_span = target_x - start_x
+        direction = 1 if horizontal_span >= 0 else -1
+        span_abs = max(abs(horizontal_span), 80)
+
         control1 = (
-            start_x + max(40, (target_x - start_x) * 0.25),
-            start_y - 90,
+            start_x + direction * max(40, span_abs * random.uniform(0.2, 0.6)),
+            start_y + random.uniform(-160, -60),
         )
         control2 = (
-            target_x - max(40, (target_x - start_x) * 0.2),
-            target_y + 80,
+            target_x - direction * max(40, span_abs * random.uniform(0.15, 0.45)),
+            target_y + random.uniform(60, 160),
         )
 
-        steps = 48
+        steps = random.randint(32, 64)
+        frame_delay = random.randint(12, 28)
+        ease_power = random.uniform(1.3, 2.6)
 
         def bezier_point(t: float) -> tuple[float, float]:
             inv = 1.0 - t
@@ -557,7 +443,7 @@ class TypingBattleGame:
                 return
 
             t = step / steps
-            eased = t ** 2.2
+            eased = t ** ease_power
             x, y = bezier_point(eased)
             self.canvas.coords(
                 missile,
@@ -566,7 +452,7 @@ class TypingBattleGame:
                 x + missile_radius,
                 y + missile_radius,
             )
-            self.root.after(18, move, step + 1)
+            self.root.after(frame_delay, move, step + 1)
 
         move()
 
@@ -642,7 +528,7 @@ class TypingBattleGame:
         )
 
         if victory:
-            self.status_label.configure(
+            self.result_label.configure(
                 text=f"승리! 총 소요 시간 {elapsed:0.2f}초 - 정확한 타자 실력입니다!"
             )
             self.canvas.itemconfig(self.boss_circle, fill="#22c55e")

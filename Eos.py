@@ -14,18 +14,6 @@ ANTHEM_LINES = [
     "하느님이 보우하사 우리나라 만세",
     "무궁화 삼천리 화려 강산",
     "대한 사람 대한으로 길이 보전하세",
-    "남산 위에 저 소나무 철갑을 두른 듯",
-    "바람 서리 불변함은 우리 기상일세",
-    "무궁화 삼천리 화려 강산",
-    "대한 사람 대한으로 길이 보전하세",
-    "가을 하늘 공활한데 높고 구름 없이",
-    "밝은 달은 우리 가슴 일편단심일세",
-    "무궁화 삼천리 화려 강산",
-    "대한 사람 대한으로 길이 보전하세",
-    "이 기상과 이 마음으로 충성을 다하여",
-    "괴로우나 즐거우나 나라 사랑하세",
-    "무궁화 삼천리 화려 강산",
-    "대한 사람 대한으로 길이 보전하세",
 ]
 
 
@@ -137,32 +125,32 @@ class TypingBattleGame:
             self.PLAYER_POS[1],
             self.PLAYER_POS[2],
             self.PLAYER_POS[3],
-            fill="#7dd3fc",
-            outline="#0891b2",
+            fill="#172554",
+            outline="#1d4ed8",
             width=4,
         )
         self.player_label = self.canvas.create_text(
-            (self.PLAYER_POS[0] + self.PLAYER_POS[2]) // 2,
-            self.PLAYER_POS[1] - 12,
+            (self.PLAYER_POS[0] + self.PLAYER_POS[2]) / 2,
+            (self.PLAYER_POS[1] + self.PLAYER_POS[3]) / 2,
             text="플레이어",
-            fill="#bae6fd",
-            font=("Nanum Gothic", 10, "bold"),
+            fill="#bfdbfe",
+            font=("Nanum Gothic", 12, "bold"),
         )
         self.boss_circle = self.canvas.create_oval(
             self.BOSS_POS[0],
             self.BOSS_POS[1],
             self.BOSS_POS[2],
             self.BOSS_POS[3],
-            fill="#f97316",
-            outline="#ea580c",
+            fill="#450a0a",
+            outline="#dc2626",
             width=5,
         )
         self.boss_label = self.canvas.create_text(
-            (self.BOSS_POS[0] + self.BOSS_POS[2]) // 2,
-            self.BOSS_POS[3] + 12,
+            (self.BOSS_POS[0] + self.BOSS_POS[2]) / 2,
+            (self.BOSS_POS[1] + self.BOSS_POS[3]) / 2,
             text="보스",
-            fill="#ffedd5",
-            font=("Nanum Gothic", 10, "bold"),
+            fill="#fecaca",
+            font=("Nanum Gothic", 12, "bold"),
         )
 
         self.player_base_coords = self.canvas.coords(self.player_circle)
@@ -174,39 +162,22 @@ class TypingBattleGame:
         typing_frame.grid(row=2, column=0, sticky="ew")
         typing_frame.columnconfigure(0, weight=1)
 
-        self.current_line_display = tk.Text(
+        self.current_line_display = tk.Canvas(
             typing_frame,
-            width=40,
-            height=3,
-            font=self.line_font,
+            height=110,
             bg="#111025",
-            fg="#f4f4f5",
-            relief="flat",
-            wrap="char",
+            highlightthickness=0,
         )
-        self.current_line_display.tag_configure("typed", foreground="#34d399")
-        self.current_line_display.tag_configure("current", foreground="#facc15")
-        self.current_line_display.tag_configure("pending", foreground="#a5b4fc")
-        self.current_line_display.tag_configure("align", justify="center")
-        self.current_line_display.tag_configure("bottom_line", font=self.bottom_font, foreground="#fef08a")
-        self.current_line_display.tag_configure("bottom_typed", foreground="#facc15")
-        self.current_line_display.tag_configure("bottom_wrong", foreground="#f87171")
-        self.current_line_display.tag_configure("transition_old", foreground="#94a3b8")
-        self.current_line_display.configure(state="disabled")
         self.current_line_display.grid(row=0, column=0, sticky="ew")
-
-        self.entry_var = tk.StringVar()
+        self.current_line_display.columnconfigure = lambda *_args, **_kwargs: None
+        self.current_line_display.text_ids = {}
         self.entry = tk.Entry(
-            typing_frame,
-            textvariable=self.entry_var,
+            self.root,
             font=self.line_font,
-            justify="center",
-            relief="flat",
         )
-        self.entry.grid(row=1, column=0, pady=(8, 0), padx=60, sticky="ew")
+        self.entry.place(x=-1000, y=-1000, width=10)
         self.entry.focus_set()
-
-        self.entry_var.trace_add("write", self._on_entry_change)
+        self.entry.bind("<Key>", self._on_key_event)
 
         info_frame = ttk.Frame(container, padding=(0, 4, 0, 0))
         info_frame.grid(row=3, column=0, sticky="ew", pady=(4, 0))
@@ -234,16 +205,12 @@ class TypingBattleGame:
 
         self._update_line_display()
 
-        self.entry.configure(state="normal")
-        self.ignore_entry_update = True
-        self.entry_var.set("")
-        self.ignore_entry_update = False
         self.entry.focus_set()
 
-        self.canvas.itemconfig(self.player_circle, fill="#7dd3fc")
-        self.canvas.itemconfig(self.player_circle, outline="#0891b2")
-        self.canvas.itemconfig(self.boss_circle, fill="#f97316")
-        self.canvas.itemconfig(self.boss_circle, outline="#ea580c")
+        self.canvas.itemconfig(self.player_circle, fill="#172554")
+        self.canvas.itemconfig(self.player_circle, outline="#1d4ed8")
+        self.canvas.itemconfig(self.boss_circle, fill="#450a0a")
+        self.canvas.itemconfig(self.boss_circle, outline="#dc2626")
 
         self.player_offset = (0.0, 0.0)
         self.boss_offset = (0.0, 0.0)
@@ -251,25 +218,13 @@ class TypingBattleGame:
         self.game_over = False
         self._schedule_jiggle()
 
-    def _on_entry_change(self, *_args) -> None:
-        if self.ignore_entry_update or self.game_over:
+    def _on_key_event(self, event: tk.Event) -> None:
+        if self.game_over:
             return
-
-        new_text = self.entry_var.get()
-        if not new_text:
+        ch = event.char
+        if not ch:
             return
-
-        processed_any = False
-        for ch in new_text:
-            if self._process_input_char(ch):
-                processed_any = True
-            if self.game_over:
-                break
-
-        if processed_any:
-            self.ignore_entry_update = True
-            self.entry_var.set("")
-            self.ignore_entry_update = False
+        self._process_input_char(ch)
 
     def _process_input_char(self, ch: str) -> bool:
         if not ch or ch == "\r" or ch == "\n":
@@ -395,38 +350,60 @@ class TypingBattleGame:
             bottom_chars[typed_len] = wrong_char
         self.current_line_display.insert("end", "".join(bottom_chars))
 
-        self.current_line_display.tag_remove("typed", "1.0", "2.0")
-        self.current_line_display.tag_remove("current", "1.0", "2.0")
-        self.current_line_display.tag_remove("pending", "1.0", "2.0")
-        self.current_line_display.tag_remove("bottom_line", "2.0", "3.0")
-        self.current_line_display.tag_remove("bottom_typed", "2.0", "3.0")
-        self.current_line_display.tag_remove("bottom_wrong", "2.0", "3.0")
-        self.current_line_display.tag_remove("transition_old", "1.0", "3.0")
+        self.current_line_display.delete("text")
+        width = self.current_line_display.winfo_width() or self.CANVAS_WIDTH
+        x_center = width / 2
+        y_top = 28
+        y_bottom = 70
 
-        self.current_line_display.tag_add("align", "1.0", "2.0")
-        self.current_line_display.tag_add("align", "2.0", "3.0")
-        self.current_line_display.tag_add("bottom_line", "2.0", "3.0")
+        full_text = current_line
+        typed_text = full_text[: typed_len]
+        remaining_text = full_text[typed_len:]
 
-        if typed_len > 0:
-            self.current_line_display.tag_add("typed", "1.0", f"1.0 + {typed_len}c")
-            self.current_line_display.tag_add("bottom_typed", "2.0", f"2.0 + {typed_len}c")
+        display_text = typed_text
+        if remaining_text:
+            display_text += remaining_text[0]
+        self.current_line_display.create_text(
+            x_center,
+            y_top,
+            text=display_text,
+            fill="#34d399",
+            font=self.line_font,
+            tags=("text",),
+            anchor="center",
+        )
+        if remaining_text:
+            pending_text = remaining_text[1:]
+            if pending_text:
+                self.current_line_display.create_text(
+                    x_center,
+                    y_top,
+                    text=pending_text,
+                    fill="#a5b4fc",
+                    font=self.line_font,
+                    tags=("text",),
+                    anchor="center",
+                )
 
-        if typed_len < len(current_line):
-            self.current_line_display.tag_add(
-                "current", f"1.0 + {typed_len}c", f"1.0 + {typed_len + 1}c"
-            )
-            self.current_line_display.tag_add(
-                "pending", f"1.0 + {typed_len + 1}c", "1.0 lineend"
-            )
+        bottom_chars = []
+        for idx, ch in enumerate(current_line):
+            if idx < typed_len:
+                bottom_chars.append(ch)
+            elif idx == typed_len and wrong_char:
+                bottom_chars.append(wrong_char)
+            else:
+                bottom_chars.append("_")
+        bottom_text = "".join(bottom_chars)
 
-        if wrong_char and typed_len < len(current_line):
-            self.current_line_display.tag_add(
-                "bottom_wrong",
-                f"2.0 + {typed_len}c",
-                f"2.0 + {typed_len + 1}c",
-            )
-
-        self.current_line_display.configure(state="disabled")
+        self.current_line_display.create_text(
+            x_center,
+            y_bottom,
+            text=bottom_text,
+            fill="#fef08a",
+            font=self.bottom_font,
+            tags=("text",),
+            anchor="center",
+        )
 
     def _apply_entity_offsets(
         self, player_offset: tuple[float, float], boss_offset: tuple[float, float]
@@ -483,7 +460,7 @@ class TypingBattleGame:
     def _animate_missile(self) -> None:
         start_x = (self.PLAYER_POS[0] + self.PLAYER_POS[2]) // 2
         start_y = (self.PLAYER_POS[1] + self.PLAYER_POS[3]) // 2
-        missile_radius = random.randint(5, 8)
+        missile_radius = random.randint(4, 10)
         missile = self.canvas.create_oval(
             start_x - missile_radius,
             start_y - missile_radius,
@@ -498,20 +475,20 @@ class TypingBattleGame:
 
         horizontal_span = target_x - start_x
         direction = 1 if horizontal_span >= 0 else -1
-        span_abs = max(abs(horizontal_span), 80)
+        span_abs = max(abs(horizontal_span), 120)
 
         control1 = (
-            start_x + direction * max(40, span_abs * random.uniform(0.2, 0.6)),
-            start_y + random.uniform(-160, -60),
+            start_x + direction * span_abs * random.uniform(0.3, 1.0) * random.choice([-1, 1]),
+            start_y + random.uniform(-220, 120),
         )
         control2 = (
-            target_x - direction * max(40, span_abs * random.uniform(0.15, 0.45)),
-            target_y + random.uniform(60, 160),
+            target_x - direction * span_abs * random.uniform(0.2, 0.9) * random.choice([-1, 1]),
+            target_y + random.uniform(-120, 200),
         )
 
-        steps = random.randint(32, 64)
-        frame_delay = random.randint(12, 28)
-        ease_power = random.uniform(1.3, 2.6)
+        steps = random.randint(24, 72)
+        frame_delay = random.randint(8, 32)
+        ease_power = random.uniform(0.8, 3.5)
 
         def bezier_point(t: float) -> tuple[float, float]:
             inv = 1.0 - t
@@ -601,18 +578,17 @@ class TypingBattleGame:
         if self.game_over:
             return
 
-        original_color = "#f97316"
-        hit_color = "#fbbf24"
-
-        self.canvas.itemconfig(self.boss_circle, fill=hit_color)
-        self.root.after(120, lambda: self.canvas.itemconfig(self.boss_circle, fill=original_color))
+        original_fill = "#450a0a"
+        hit_fill = "#dc2626"
+        self.canvas.itemconfig(self.boss_circle, fill=hit_fill)
+        self.root.after(140, lambda: self.canvas.itemconfig(self.boss_circle, fill=original_fill))
 
     def _flash_player(self) -> None:
-        original_color = "#7dd3fc"
-        hit_color = "#f87171"
+        original_fill = "#172554"
+        hit_fill = "#2563eb"
 
-        self.canvas.itemconfig(self.player_circle, fill=hit_color)
-        self.root.after(150, lambda: self.canvas.itemconfig(self.player_circle, fill=original_color))
+        self.canvas.itemconfig(self.player_circle, fill=hit_fill)
+        self.root.after(150, lambda: self.canvas.itemconfig(self.player_circle, fill=original_fill))
 
     def _finish_game(self, victory: bool) -> None:
         self.game_over = True

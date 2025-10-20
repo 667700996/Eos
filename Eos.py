@@ -30,9 +30,6 @@ ANTHEM_LINES = [
 
 
 class TypingBattleGame:
-    PLAYER_MAX_HP = 100
-    WRONG_DAMAGE = 10
-
     CANVAS_WIDTH = 520
     CANVAS_HEIGHT = 220
 
@@ -68,12 +65,15 @@ class TypingBattleGame:
                 self.char_meta.append((line_idx, pos_in_line))
 
     def _build_state(self) -> None:
-        self.player_hp = self.PLAYER_MAX_HP
         self.boss_hp = 100.0
         self.current_index = 0
         self.current_line_index = 0
         self.game_over = False
         self.start_time = None
+
+        self.correct_inputs = 0
+        self.total_inputs = 0
+        self.wpm = 0.0
 
         self.ignore_entry_update = False
 
@@ -87,12 +87,12 @@ class TypingBattleGame:
         top_frame.columnconfigure(1, weight=1)
         top_frame.columnconfigure(2, weight=1)
 
-        self.player_hp_label = ttk.Label(
+        self.accuracy_label = ttk.Label(
             top_frame,
-            text=f"내 체력 - {self.player_hp}/{self.PLAYER_MAX_HP}",
+            text="정확도 - 100.0%",
             style="Info.TLabel",
         )
-        self.player_hp_label.grid(row=0, column=0, sticky="w")
+        self.accuracy_label.grid(row=0, column=0, sticky="w")
 
         self.timer_label = ttk.Label(top_frame, text="시간 - 0.00초", style="Info.TLabel", anchor="center")
         self.timer_label.grid(row=0, column=1, sticky="ew")
@@ -103,6 +103,14 @@ class TypingBattleGame:
             style="Info.TLabel",
         )
         self.boss_hp_label.grid(row=0, column=2, sticky="e")
+
+        self.wpm_label = ttk.Label(
+            top_frame,
+            text="분당 타수 - 0.0",
+            style="Small.TLabel",
+            anchor="center",
+        )
+        self.wpm_label.grid(row=1, column=1, sticky="n")
 
         self.canvas = tk.Canvas(
             container,
@@ -226,7 +234,8 @@ class TypingBattleGame:
 
     def _reset_game_state(self) -> None:
         self._build_state()
-        self._update_hp_labels()
+        self._update_stat_labels()
+        self._update_wpm(0.0)
         self.status_label.configure(text="타자를 시작하면 전투가 진행됩니다!")
 
         self._update_line_display()
@@ -252,11 +261,9 @@ class TypingBattleGame:
         self._update_timer()
 
     def _update_timer(self) -> None:
-        if self.start_time is None:
-            elapsed = 0.0
-        else:
-            elapsed = time.perf_counter() - self.start_time
+        elapsed = 0.0 if self.start_time is None else time.perf_counter() - self.start_time
         self.timer_label.configure(text=f"시간 - {elapsed:0.2f}초")
+        self._update_wpm(elapsed)
         self.root.after(50, self._update_timer)
 
     def _on_entry_change(self, *_args) -> None:
@@ -290,7 +297,10 @@ class TypingBattleGame:
         if self._is_composing_char(ch):
             return False
 
+        self.total_inputs += 1
+
         if ch == expected:
+            self.correct_inputs += 1
             self._handle_correct_input()
             return True
         else:
@@ -300,7 +310,7 @@ class TypingBattleGame:
     def _handle_correct_input(self) -> None:
         self.current_index += 1
         self.boss_hp = max(0.0, self.boss_hp - self.boss_damage_per_hit)
-        self._update_hp_labels()
+        self._update_stat_labels()
         self._update_line_display()
         self._animate_missile()
 
@@ -314,28 +324,31 @@ class TypingBattleGame:
                 self._line_transition_animation()
 
     def _handle_wrong_input(self, ch: str, expected: str) -> None:
-        self.player_hp = max(0, self.player_hp - self.WRONG_DAMAGE)
-        self._update_hp_labels()
+        self._update_stat_labels()
         self._flash_player()
         self.status_label.configure(
             text=f"틀렸습니다! 입력 - '{ch}' / 목표 - '{expected}'"
         )
 
         _, current_line, typed_len, _ = self._get_line_state()
-        self._set_karaoke_text(current_line[:typed_len], wrong_char=ch)
+        self._set_karaoke_text(current_line, typed_len, wrong_char=ch)
 
-        if self.player_hp <= 0:
-            self._finish_game(victory=False)
-
-    def _update_hp_labels(self) -> None:
+    def _update_stat_labels(self) -> None:
         remaining_hits = self.total_chars - self.current_index
         boss_percent = max(0.0, self.boss_hp)
         self.boss_hp_label.configure(
             text=f"보스 체력 - {remaining_hits}/{self.total_chars} ({boss_percent:0.1f}%)"
         )
-        self.player_hp_label.configure(
-            text=f"내 체력 - {self.player_hp}/{self.PLAYER_MAX_HP}"
-        )
+        accuracy = 100.0 if self.total_inputs == 0 else (self.correct_inputs / self.total_inputs) * 100.0
+        self.accuracy_label.configure(text=f"정확도 - {accuracy:0.1f}%")
+
+    def _update_wpm(self, elapsed: float) -> None:
+        if elapsed <= 0.0:
+            self.wpm = 0.0
+        else:
+            characters_per_minute = (self.correct_inputs / elapsed) * 60.0
+            self.wpm = characters_per_minute
+        self.wpm_label.configure(text=f"분당 타수 - {self.wpm:0.1f}")
 
     def _get_line_state(self) -> tuple[int, str, int, str]:
         if self.current_index >= self.total_chars:
@@ -377,24 +390,35 @@ class TypingBattleGame:
 
         self.current_line_display.configure(state="disabled")
 
-        self._set_karaoke_text(typed_text)
+        self._set_karaoke_text(current_line, typed_len)
 
         self.next_line_label.configure(
             text=f"다음 - {next_line}" if next_line else "다음 줄 없음"
         )
 
-    def _set_karaoke_text(self, typed_text: str, wrong_char: str | None = None) -> None:
+    def _set_karaoke_text(self, current_line: str, typed_len: int, wrong_char: str | None = None) -> None:
+        display_chars = [" " for _ in current_line]
+        for idx in range(min(typed_len, len(current_line))):
+            display_chars[idx] = current_line[idx]
+        if wrong_char and typed_len < len(display_chars):
+            display_chars[typed_len] = wrong_char
+
+        display_text = "".join(display_chars)
+
         self.karaoke_display.configure(state="normal")
         self.karaoke_display.delete("1.0", "end")
-        if typed_text:
-            self.karaoke_display.insert("1.0", typed_text, ("align", "typed"))
-        if wrong_char:
-            if not typed_text:
-                self.karaoke_display.insert("1.0", "", ("align",))
-            self.karaoke_display.insert("end", wrong_char, ("align", "wrong"))
-        if not typed_text and not wrong_char:
-            self.karaoke_display.insert("1.0", "", ("align",))
+        self.karaoke_display.insert("1.0", display_text)
         self.karaoke_display.tag_add("align", "1.0", "end")
+
+        if typed_len > 0:
+            self.karaoke_display.tag_add("typed", "1.0", f"1.0 + {typed_len}c")
+        if wrong_char and typed_len < len(display_chars):
+            self.karaoke_display.tag_add(
+                "wrong",
+                f"1.0 + {typed_len}c",
+                f"1.0 + {typed_len + 1}c",
+            )
+
         self.karaoke_display.configure(state="disabled")
 
     def _animate_missile(self) -> None:
@@ -469,7 +493,7 @@ class TypingBattleGame:
         spins = 10
         duration = 20
 
-        self._set_karaoke_text("")
+        self._set_karaoke_text(line_text, 0)
 
         def spin(step: int = 0) -> None:
             if step >= spins or self.game_over:
@@ -526,11 +550,6 @@ class TypingBattleGame:
                 text=f"승리! 총 소요 시간 {elapsed:0.2f}초 - 정확한 타자 실력입니다!"
             )
             self.canvas.itemconfig(self.boss_circle, fill="#22c55e")
-        else:
-            self.status_label.configure(
-                text=f"패배... 애국가를 끝까지 지키지 못했습니다. (생존 시간 {elapsed:0.2f}초)"
-            )
-            self.canvas.itemconfig(self.player_circle, fill="#ef4444")
 
     def run(self) -> None:
         self.root.mainloop()

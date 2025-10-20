@@ -5,7 +5,6 @@
 """
 
 import random
-import time
 import tkinter as tk
 from tkinter import ttk, font
 
@@ -51,7 +50,6 @@ class TypingBattleGame:
         self._build_state()
         self._build_widgets()
         self._reset_game_state()
-        self._start_timer()
 
     def _prepare_assets(self) -> None:
         self.display_text = "\n".join(ANTHEM_LINES)
@@ -70,9 +68,14 @@ class TypingBattleGame:
         self.current_index = 0
         self.current_line_index = 0
         self.game_over = False
-        self.start_time = None
-
         self.ignore_entry_update = False
+        self.player_base_coords: list[float] | None = None
+        self.boss_base_coords: list[float] | None = None
+        self.player_label_base: list[float] | None = None
+        self.boss_label_base: list[float] | None = None
+        self.player_offset = (0.0, 0.0)
+        self.boss_offset = (0.0, 0.0)
+        self._jiggle_job: str | None = None
 
     def _build_widgets(self) -> None:
         container = ttk.Frame(self.root, padding=16)
@@ -81,17 +84,45 @@ class TypingBattleGame:
         self.line_font = font.Font(family="Nanum Gothic", size=20, weight="bold")
         self.bottom_font = font.Font(family="Nanum Gothic", size=18, weight="bold")
 
-        top_frame = ttk.Frame(container)
-        top_frame.grid(row=0, column=0, sticky="ew")
-        top_frame.columnconfigure(0, weight=1)
+        hp_frame = ttk.Frame(container, padding=(0, 0, 0, 6))
+        hp_frame.grid(row=0, column=0, sticky="ew")
+        hp_frame.columnconfigure(0, weight=1)
+        hp_frame.columnconfigure(1, weight=0)
 
-        self.boss_hp_label = ttk.Label(
-            top_frame,
-            text=f"보스 체력 - {self.total_chars - self.current_index}/{self.total_chars} (100.0%)",
-            style="Info.TLabel",
-            anchor="center",
+        self.HP_BAR_WIDTH = 360
+        self.HP_BAR_HEIGHT = 22
+        self.hp_canvas = tk.Canvas(
+            hp_frame,
+            width=self.HP_BAR_WIDTH,
+            height=self.HP_BAR_HEIGHT,
+            bg="#111827",
+            highlightthickness=0,
         )
-        self.boss_hp_label.grid(row=0, column=0, sticky="ew")
+        self.hp_canvas.grid(row=0, column=0, sticky="ew")
+        self.hp_canvas.create_rectangle(
+            1,
+            1,
+            self.HP_BAR_WIDTH - 1,
+            self.HP_BAR_HEIGHT - 1,
+            outline="#991b1b",
+            width=2,
+        )
+        self.hp_bar_fill = self.hp_canvas.create_rectangle(
+            2,
+            2,
+            self.HP_BAR_WIDTH - 2,
+            self.HP_BAR_HEIGHT - 2,
+            fill="#ef4444",
+            width=0,
+        )
+
+        self.hp_percent_label = ttk.Label(
+            hp_frame,
+            text="보스 체력 100.0%",
+            style="Info.TLabel",
+            anchor="e",
+        )
+        self.hp_percent_label.grid(row=0, column=1, padx=(12, 0))
 
         self.canvas = tk.Canvas(
             container,
@@ -100,7 +131,7 @@ class TypingBattleGame:
             bg="#1f1b2d",
             highlightthickness=0,
         )
-        self.canvas.grid(row=1, column=0, sticky="ew", pady=(12, 12))
+        self.canvas.grid(row=1, column=0, sticky="ew", pady=(6, 12))
 
         self.player_circle = self.canvas.create_oval(
             self.PLAYER_POS[0],
@@ -135,8 +166,13 @@ class TypingBattleGame:
             font=("Nanum Gothic", 10, "bold"),
         )
 
+        self.player_base_coords = self.canvas.coords(self.player_circle)
+        self.boss_base_coords = self.canvas.coords(self.boss_circle)
+        self.player_label_base = self.canvas.coords(self.player_label)
+        self.boss_label_base = self.canvas.coords(self.boss_label)
+
         typing_frame = ttk.Frame(container, padding=(0, 8))
-        typing_frame.grid(row=2, column=0, sticky="ew")
+        typing_frame.grid(row=1, column=0, sticky="ew")
         typing_frame.columnconfigure(0, weight=1)
 
         self.current_line_display = tk.Text(
@@ -161,29 +197,22 @@ class TypingBattleGame:
         self.current_line_display.grid(row=0, column=0, sticky="ew")
 
         self.entry_var = tk.StringVar()
-        self.entry = ttk.Entry(
+        self.entry = tk.Entry(
             container,
-            width=16,
             textvariable=self.entry_var,
             font=self.line_font,
+            justify="center",
+            relief="flat",
         )
-        self.entry.place(x=-1000, y=-1000)
+        self.entry.place(relx=0.5, rely=0.83, anchor="center", width=360, height=46)
         self.entry.focus_set()
 
         self.entry_var.trace_add("write", self._on_entry_change)
 
         info_frame = ttk.Frame(container, padding=(0, 4, 0, 0))
-        info_frame.grid(row=3, column=0, sticky="ew")
+        info_frame.grid(row=2, column=0, sticky="ew", pady=(4, 0))
         info_frame.columnconfigure(0, weight=1)
         info_frame.columnconfigure(1, weight=1)
-
-        self.timer_label = ttk.Label(
-            info_frame,
-            text="시간 - 0.00초",
-            style="Status.TLabel",
-            anchor="w",
-        )
-        self.timer_label.grid(row=0, column=0, sticky="w")
 
         self.result_label = ttk.Label(
             info_frame,
@@ -194,7 +223,7 @@ class TypingBattleGame:
         self.result_label.grid(row=0, column=1, sticky="e")
 
         button_frame = ttk.Frame(container, padding=(0, 4))
-        button_frame.grid(row=4, column=0, sticky="e")
+        button_frame.grid(row=3, column=0, sticky="e")
 
         self.reset_button = ttk.Button(button_frame, text="다시 시작", command=self._reset_game_state)
         self.reset_button.grid(row=0, column=0, padx=8)
@@ -217,19 +246,11 @@ class TypingBattleGame:
         self.canvas.itemconfig(self.boss_circle, fill="#f97316")
         self.canvas.itemconfig(self.boss_circle, outline="#ea580c")
 
-        self.start_time = time.perf_counter()
-        if not hasattr(self, "_timer_running"):
-            self._timer_running = True
+        self.player_offset = (0.0, 0.0)
+        self.boss_offset = (0.0, 0.0)
+        self._apply_entity_offsets(self.player_offset, self.boss_offset)
         self.game_over = False
-
-    def _start_timer(self) -> None:
-        self._timer_running = True
-        self._update_timer()
-
-    def _update_timer(self) -> None:
-        elapsed = 0.0 if self.start_time is None else time.perf_counter() - self.start_time
-        self.timer_label.configure(text=f"시간 - {elapsed:0.2f}초")
-        self.root.after(50, self._update_timer)
+        self._schedule_jiggle()
 
     def _on_entry_change(self, *_args) -> None:
         if self.ignore_entry_update or self.game_over:
@@ -312,11 +333,21 @@ class TypingBattleGame:
         self._update_line_display(wrong_char=ch)
 
     def _update_stat_labels(self) -> None:
-        remaining_hits = self.total_chars - self.current_index
         boss_percent = max(0.0, self.boss_hp)
-        self.boss_hp_label.configure(
-            text=f"보스 체력 - {remaining_hits}/{self.total_chars} ({boss_percent:0.1f}%)"
+        self._draw_hp_bar(boss_percent)
+
+    def _draw_hp_bar(self, boss_percent: float) -> None:
+        proportion = boss_percent / 100.0
+        proportion = max(0.0, min(1.0, proportion))
+        fill_width = 2 + (self.HP_BAR_WIDTH - 4) * proportion
+        self.hp_canvas.coords(
+            self.hp_bar_fill,
+            2,
+            2,
+            fill_width,
+            self.HP_BAR_HEIGHT - 2,
         )
+        self.hp_percent_label.configure(text=f"보스 체력 {boss_percent:0.1f}%")
     def _get_line_state(self) -> tuple[int, str, int, str]:
         if self.current_index >= self.total_chars:
             idx = len(ANTHEM_LINES) - 1
@@ -385,6 +416,58 @@ class TypingBattleGame:
             )
 
         self.current_line_display.configure(state="disabled")
+
+    def _apply_entity_offsets(
+        self, player_offset: tuple[float, float], boss_offset: tuple[float, float]
+    ) -> None:
+        if self.player_base_coords and self.player_label_base:
+            x1, y1, x2, y2 = self.player_base_coords
+            dx, dy = player_offset
+            self.canvas.coords(self.player_circle, x1 + dx, y1 + dy, x2 + dx, y2 + dy)
+            px, py = self.player_label_base
+            self.canvas.coords(self.player_label, px + dx, py + dy)
+
+        if self.boss_base_coords and self.boss_label_base:
+            x1, y1, x2, y2 = self.boss_base_coords
+            dx, dy = boss_offset
+            self.canvas.coords(self.boss_circle, x1 + dx, y1 + dy, x2 + dx, y2 + dy)
+            bx, by = self.boss_label_base
+            self.canvas.coords(self.boss_label, bx + dx, by + dy)
+
+    def _schedule_jiggle(self) -> None:
+        if self._jiggle_job is not None:
+            self.root.after_cancel(self._jiggle_job)
+            self._jiggle_job = None
+        self._jiggle_job = self.root.after(520, self._jiggle_entities)
+
+    def _jiggle_entities(self) -> None:
+        if self.game_over:
+            self._jiggle_job = None
+            return
+
+        max_offset = 2.0
+        smoothing = 0.4
+
+        target_player = (
+            random.uniform(-max_offset, max_offset),
+            random.uniform(-max_offset, max_offset),
+        )
+        target_boss = (
+            random.uniform(-max_offset, max_offset),
+            random.uniform(-max_offset, max_offset),
+        )
+
+        self.player_offset = (
+            self.player_offset[0] * smoothing + target_player[0] * (1 - smoothing),
+            self.player_offset[1] * smoothing + target_player[1] * (1 - smoothing),
+        )
+        self.boss_offset = (
+            self.boss_offset[0] * smoothing + target_boss[0] * (1 - smoothing),
+            self.boss_offset[1] * smoothing + target_boss[1] * (1 - smoothing),
+        )
+
+        self._apply_entity_offsets(self.player_offset, self.boss_offset)
+        self._schedule_jiggle()
 
     def _animate_missile(self) -> None:
         start_x = (self.PLAYER_POS[0] + self.PLAYER_POS[2]) // 2
@@ -523,13 +606,9 @@ class TypingBattleGame:
     def _finish_game(self, victory: bool) -> None:
         self.game_over = True
         self.entry.configure(state="disabled")
-        elapsed = (
-            time.perf_counter() - self.start_time if self.start_time is not None else 0.0
-        )
-
         if victory:
             self.result_label.configure(
-                text=f"승리! 총 소요 시간 {elapsed:0.2f}초 - 정확한 타자 실력입니다!"
+                text="승리!"
             )
             self.canvas.itemconfig(self.boss_circle, fill="#22c55e")
 

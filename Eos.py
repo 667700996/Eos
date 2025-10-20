@@ -151,6 +151,7 @@ class TypingBattleGame:
         self.current_line_display.tag_configure("typed", foreground="#34d399")
         self.current_line_display.tag_configure("current", foreground="#facc15")
         self.current_line_display.tag_configure("pending", foreground="#a5b4fc")
+        self.current_line_display.tag_configure("align", justify="center")
         self.current_line_display.configure(state="disabled")
         self.current_line_display.grid(row=0, column=0, sticky="ew")
 
@@ -236,27 +237,35 @@ class TypingBattleGame:
         if not new_text:
             return
 
+        processed_any = False
         for ch in new_text:
-            self._process_input_char(ch)
+            if self._process_input_char(ch):
+                processed_any = True
             if self.game_over:
                 break
 
-        self.ignore_entry_update = True
-        self.entry_var.set("")
-        self.ignore_entry_update = False
+        if processed_any:
+            self.ignore_entry_update = True
+            self.entry_var.set("")
+            self.ignore_entry_update = False
 
-    def _process_input_char(self, ch: str) -> None:
+    def _process_input_char(self, ch: str) -> bool:
         if not ch or ch == "\r" or ch == "\n":
-            return
+            return False
 
         expected = self.text_chars[self.current_index] if self.current_index < self.total_chars else None
         if expected is None:
-            return
+            return False
+
+        if self._is_composing_char(ch):
+            return False
 
         if ch == expected:
             self._handle_correct_input()
+            return True
         else:
             self._handle_wrong_input(ch, expected)
+            return True
 
     def _handle_correct_input(self) -> None:
         self.current_index += 1
@@ -301,6 +310,7 @@ class TypingBattleGame:
         self.current_line_display.tag_remove("typed", "1.0", "end")
         self.current_line_display.tag_remove("current", "1.0", "end")
         self.current_line_display.tag_remove("pending", "1.0", "end")
+        self.current_line_display.tag_remove("align", "1.0", "end")
 
         if self.current_index >= self.total_chars:
             current_line = ANTHEM_LINES[-1]
@@ -323,6 +333,7 @@ class TypingBattleGame:
 
         self.current_line_display.insert("1.0", typed_text)
         self.current_line_display.insert("end", remaining_text)
+        self.current_line_display.tag_add("align", "1.0", "end")
 
         self.current_line_display.tag_add("typed", "1.0", f"1.0 + {len(typed_text)}c")
         if remaining_text:
@@ -378,10 +389,22 @@ class TypingBattleGame:
             self.current_line_display.configure(state="normal")
             self.current_line_display.delete("1.0", "end")
             self.current_line_display.insert("1.0", rotated)
+            self.current_line_display.tag_add("align", "1.0", "end")
             self.current_line_display.configure(state="disabled")
             self.root.after(duration, spin, step + 1)
 
         spin()
+
+    def _is_composing_char(self, ch: str) -> bool:
+        if not ch:
+            return False
+        code = ord(ch)
+        return (
+            0x1100 <= code <= 0x11FF
+            or 0x3130 <= code <= 0x318F
+            or 0xA960 <= code <= 0xA97F
+            or 0xD7B0 <= code <= 0xD7FF
+        )
 
     def _flash_boss(self) -> None:
         if self.game_over:

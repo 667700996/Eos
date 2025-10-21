@@ -71,7 +71,7 @@ class TypingBattleGame:
         container = ttk.Frame(self.root, padding=16)
         container.grid(row=0, column=0, sticky="nsew")
 
-        self.line_font = font.Font(family="Nanum Gothic", size=15, weight="bold")
+        self.line_font = font.Font(family="Nanum Gothic", size=13, weight="bold")
         self.bottom_font = font.Font(family="Nanum Gothic", size=14, weight="bold")
 
         hp_frame = ttk.Frame(container, padding=(0, 0, 0, 6))

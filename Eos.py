@@ -1,6 +1,6 @@
 """타자 연습 기반의 간단한 보스전 게임 (tkinter GUI).
 
-애국가 1~4절 가사를 모두 입력하면 보스를 쓰러뜨릴 수 있고,
+주어진 전곡 가사를 모두 입력하면 보스를 쓰러뜨릴 수 있고,
 틀리는 즉시 플레이어가 피해를 입습니다.
 """
 
@@ -9,11 +9,57 @@ import tkinter as tk
 from tkinter import ttk, font
 
 
-ANTHEM_LINES = [
-    "동해 물과 백두산이 마르고 닳도록",
-    "하느님이 보우하사 우리나라 만세",
-    "무궁화 삼천리 화려 강산",
-    "대한 사람 대한으로 길이 보전하세",
+LYRICS_LINES = [
+    "통신보안 지금 보고 싶어",
+    "빨리 달려와줘",
+    "쓰담쓰담 날 안아줘",
+    "친구 말고 여자 친구는 어때",
+    "한눈팔지 않을게",
+    "사랑이지 말입니다",
+    "",
+    "알바 첫 출근 날 얼음 같던",
+    "나에게 말 걸어준 너",
+    "표현 못 했지만 정말 고마웠었어",
+    "솔직히 살짝 설렜어",
+    "",
+    "플러팅이야 뭐야",
+    "그렇게 웃지 좀 마",
+    "얼굴이 터질 것 같잖아",
+    "",
+    "통신보안 지금 보고 싶어",
+    "빨리 달려와줘",
+    "쓰담쓰담 날 안아줘",
+    "친구 말고 여자 친구는 어때",
+    "한눈팔지 않을게",
+    "사랑이지 말입니다",
+    "",
+    "가끔 니 번호를 물어보는",
+    "여자들 신경 쓰였어",
+    "혹시라도 니가 맘에 들어 할까 봐",
+    "혼자서 맘고생 했어",
+    "",
+    "플러팅이야 뭐야",
+    "그렇게 웃지 좀 마",
+    "질투 나 미칠 것 같은걸",
+    "",
+    "통신보안 지금 보고 싶어",
+    "빨리 달려와줘",
+    "쓰담쓰담 날 안아줘",
+    "친구 말고 여자 친구는 어때",
+    "한눈팔지 않을게",
+    "사랑이지 말입니다",
+    "",
+    "지금 뭐 해 잠깐 나올래",
+    "한참을 고민했어",
+    "더 이상 모른척하지 마",
+    "나 어떻게 생각해",
+    "",
+    "하나 내 전화는 꼭 받는다",
+    "둘 틈날 때마다 예쁘다고 말해준다",
+    "셋 힘들 땐 나를 부른다",
+    "넷 나만 바라봐 줘",
+    "내 하나뿐인 그대야",
+    "사랑이지 말입니다",
 ]
 
 
@@ -40,14 +86,14 @@ class TypingBattleGame:
         self._reset_game_state()
 
     def _prepare_assets(self) -> None:
-        self.display_text = "\n".join(ANTHEM_LINES)
-        self.text_chars = [ch for line in ANTHEM_LINES for ch in line]
+        self.display_text = "\n".join(LYRICS_LINES)
+        self.text_chars = [ch for line in LYRICS_LINES for ch in line]
 
         self.total_chars = len(self.text_chars)
         self.boss_damage_per_hit = 100.0 / float(self.total_chars)
 
         self.char_meta = []
-        for line_idx, line in enumerate(ANTHEM_LINES):
+        for line_idx, line in enumerate(LYRICS_LINES):
             for pos_in_line, _ch in enumerate(line):
                 self.char_meta.append((line_idx, pos_in_line))
 
@@ -289,10 +335,10 @@ class TypingBattleGame:
     def _handle_correct_input(self) -> None:
         if self.current_index < self.total_chars:
             previous_line_idx = self.char_meta[self.current_index][0]
-            previous_line_text = ANTHEM_LINES[previous_line_idx]
+            previous_line_text = LYRICS_LINES[previous_line_idx]
         else:
-            previous_line_idx = len(ANTHEM_LINES) - 1
-            previous_line_text = ANTHEM_LINES[previous_line_idx]
+            previous_line_idx = len(LYRICS_LINES) - 1
+            previous_line_text = LYRICS_LINES[previous_line_idx]
 
         self.current_index += 1
         self.boss_hp = max(0.0, self.boss_hp - self.boss_damage_per_hit)
@@ -355,13 +401,13 @@ class TypingBattleGame:
         self.hp_canvas.after(120, lambda: self.hp_canvas.itemconfig(self.hp_bar_fill, fill=original_fill))
     def _get_line_state(self) -> tuple[int, str, int, str]:
         if self.current_index >= self.total_chars:
-            idx = len(ANTHEM_LINES) - 1
-            typed_len = len(ANTHEM_LINES[idx])
+            idx = len(LYRICS_LINES) - 1
+            typed_len = len(LYRICS_LINES[idx])
             next_line = ""
         else:
             idx, typed_len = self.char_meta[self.current_index]
-            next_line = ANTHEM_LINES[idx + 1] if idx + 1 < len(ANTHEM_LINES) else ""
-        return idx, ANTHEM_LINES[idx], typed_len, next_line
+            next_line = LYRICS_LINES[idx + 1] if idx + 1 < len(LYRICS_LINES) else ""
+        return idx, LYRICS_LINES[idx], typed_len, next_line
 
     def _update_line_display(
         self,

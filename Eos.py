@@ -19,10 +19,10 @@ ANTHEM_LINES = [
 
 class TypingBattleGame:
     CANVAS_WIDTH = 520
-    CANVAS_HEIGHT = 220
+    CANVAS_HEIGHT = 180
 
-    PLAYER_POS = (40, 120, 120, 200)
-    BOSS_POS = (400, 120, 480, 200)
+    PLAYER_POS = (60, 60, 140, 140)
+    BOSS_POS = (380, 60, 460, 140)
 
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
@@ -57,6 +57,8 @@ class TypingBattleGame:
         self.current_index = 0
         self.current_line_index = 0
         self.game_over = False
+        self.await_restart = False
+        self.ignore_entry_update = False
         self.player_base_coords = None
         self.boss_base_coords = None
         self.player_label_base = None
@@ -161,22 +163,40 @@ class TypingBattleGame:
         typing_frame.grid(row=2, column=0, sticky="ew")
         typing_frame.columnconfigure(0, weight=1)
 
-        self.current_line_display = tk.Canvas(
+        self.current_line_display = tk.Text(
             typing_frame,
-            height=110,
-            bg="#111025",
-            highlightthickness=0,
-        )
-        self.current_line_display.grid(row=0, column=0, sticky="ew")
-        self.current_line_display.columnconfigure = lambda *_args, **_kwargs: None
-        self.current_line_display.text_ids = {}
-        self.entry = tk.Entry(
-            self.root,
+            width=48,
+            height=3,
             font=self.line_font,
+            bg="#111025",
+            fg="#f4f4f5",
+            relief="flat",
+            wrap="char",
         )
-        self.entry.place(x=-1000, y=-1000, width=10)
+        self.current_line_display.tag_configure("typed", foreground="#34d399")
+        self.current_line_display.tag_configure("current", foreground="#facc15")
+        self.current_line_display.tag_configure("pending", foreground="#a5b4fc")
+        self.current_line_display.tag_configure("align", justify="center")
+        self.current_line_display.tag_configure("bottom_line", font=self.bottom_font, foreground="#fef08a")
+        self.current_line_display.tag_configure("bottom_typed", foreground="#facc15")
+        self.current_line_display.tag_configure("bottom_wrong", foreground="#f87171")
+        self.current_line_display.tag_configure("transition_old", foreground="#94a3b8")
+        self.current_line_display.configure(state="disabled")
+        self.current_line_display.grid(row=0, column=0, sticky="ew")
+
+        self.entry_var = tk.StringVar()
+        self.entry = tk.Entry(
+            typing_frame,
+            textvariable=self.entry_var,
+            font=self.line_font,
+            justify="center",
+            relief="flat",
+        )
+        self.entry.grid(row=1, column=0, pady=(8, 0), padx=60, sticky="ew")
         self.entry.focus_set()
-        self.entry.bind("<Key>", self._on_key_event)
+
+        self.entry_var.trace_add("write", self._on_entry_change)
+        self.root.bind("<space>", self._on_space_press)
 
         info_frame = ttk.Frame(container, padding=(0, 4, 0, 0))
         info_frame.grid(row=3, column=0, sticky="ew", pady=(4, 0))
@@ -205,8 +225,11 @@ class TypingBattleGame:
         self._update_line_display()
 
         self.entry.configure(state="normal")
-        self.entry.delete(0, tk.END)
+        self.ignore_entry_update = True
+        self.entry_var.set("")
+        self.ignore_entry_update = False
         self.entry.focus_set()
+        self.await_restart = False
 
         self.canvas.itemconfig(self.player_circle, fill="#172554")
         self.canvas.itemconfig(self.player_circle, outline="#1d4ed8")
@@ -219,15 +242,29 @@ class TypingBattleGame:
         self.game_over = False
         self._schedule_jiggle()
 
-    def _on_key_event(self, event: tk.Event) -> None:
-        if self.game_over:
+    def _on_entry_change(self, *_args) -> None:
+        if self.ignore_entry_update or self.game_over:
             return
-        ch = event.char
-        if not ch:
+
+        new_text = self.entry_var.get()
+        if not new_text:
             return
-        self._process_input_char(ch)
-        event.widget.delete(0, tk.END)
-        return "break"
+
+        processed_any = False
+        for ch in new_text:
+            if self._process_input_char(ch):
+                processed_any = True
+            if self.game_over:
+                break
+
+        if processed_any:
+            self.ignore_entry_update = True
+            self.entry_var.set("")
+            self.ignore_entry_update = False
+
+    def _on_space_press(self, _event: tk.Event) -> None:
+        if self.await_restart:
+            self._reset_game_state()
 
     def _process_input_char(self, ch: str) -> bool:
         if not ch or ch == "\r" or ch == "\n":
@@ -342,52 +379,46 @@ class TypingBattleGame:
             typed_len = typed_len_override
 
         canvas = self.current_line_display
-        current_line = current_line or ""
-        typed_len = max(0, min(typed_len, len(current_line)))
+        canvas.configure(state="normal")
+        canvas.delete("1.0", "end")
+        canvas.insert("1.0", current_line)
+        canvas.insert("end", "\n")
 
-        width = self.CANVAS_WIDTH
-        height = 110
+        bottom_chars = ["·" for _ in current_line]
+        for idx in range(min(typed_len, len(current_line))):
+            bottom_chars[idx] = current_line[idx]
+        if wrong_char and typed_len < len(bottom_chars):
+            bottom_chars[typed_len] = wrong_char
+        canvas.insert("end", "".join(bottom_chars))
 
-        image = tk.PhotoImage(width=width, height=height)
-        for y in range(height):
-            for x in range(width):
-                image.put("#111025", (x, y))
+        canvas.tag_remove("typed", "1.0", "end")
+        canvas.tag_remove("current", "1.0", "end")
+        canvas.tag_remove("pending", "1.0", "end")
+        canvas.tag_remove("bottom_line", "1.0", "end")
+        canvas.tag_remove("bottom_typed", "1.0", "end")
+        canvas.tag_remove("bottom_wrong", "1.0", "end")
+        canvas.tag_remove("align", "1.0", "end")
 
-        x_center = width // 2
-        top_y = 30
-        bottom_y = 72
+        canvas.tag_add("align", "1.0", "2.0")
+        canvas.tag_add("align", "2.0", "3.0")
+        canvas.tag_add("bottom_line", "2.0", "3.0")
 
-        def draw_text(text, y, fill, font):
-            label = tk.Label(canvas, text=text, font=font, fg=fill, bg="#111025")
-            label.place(x=x_center, y=y, anchor="center")
-            canvas.image = getattr(canvas, "image", []) + [label]
+        if typed_len > 0:
+            canvas.tag_add("typed", "1.0", f"1.0 + {typed_len}c")
+            canvas.tag_add("bottom_typed", "2.0", f"2.0 + {typed_len}c")
 
-        if hasattr(canvas, "image"):
-            for label in canvas.image:
-                label.destroy()
-
-        canvas.configure(width=width, height=height)
-        canvas.create_image(0, 0, image=image, anchor="nw")
-        canvas.bg_image = image
-
-        top_text = current_line[: typed_len]
         if typed_len < len(current_line):
-            top_text += current_line[typed_len]
-        draw_text(top_text, top_y, "#34d399", self.line_font)
+            canvas.tag_add("current", f"1.0 + {typed_len}c", f"1.0 + {typed_len + 1}c")
+            canvas.tag_add("pending", f"1.0 + {typed_len + 1}c", "1.0 lineend")
 
-        if typed_len < len(current_line) - 1:
-            pending = current_line[typed_len + 1 :]
-            draw_text(pending, top_y, "#a5b4fc", self.line_font)
+        if wrong_char and typed_len < len(current_line):
+            canvas.tag_add(
+                "bottom_wrong",
+                f"2.0 + {typed_len}c",
+                f"2.0 + {typed_len + 1}c",
+            )
 
-        bottom_chars = []
-        for idx, ch in enumerate(current_line):
-            if idx < typed_len:
-                bottom_chars.append(ch)
-            elif idx == typed_len and wrong_char:
-                bottom_chars.append(wrong_char)
-            else:
-                bottom_chars.append("·")
-        draw_text("".join(bottom_chars), bottom_y, "#fef08a", self.bottom_font)
+        canvas.configure(state="disabled")
 
     def _apply_entity_offsets(
         self, player_offset: tuple[float, float], boss_offset: tuple[float, float]
@@ -516,30 +547,12 @@ class TypingBattleGame:
             self._update_line_display()
             return
 
-        canvas = self.current_line_display
-        canvas.delete("all")
-        canvas.update_idletasks()
-        width = canvas.winfo_width() or self.CANVAS_WIDTH
-        height = canvas.winfo_height() or 110
-        canvas.create_rectangle(0, 0, width, height, fill="#111025", outline="")
-        canvas.create_text(
-            width / 2,
-            28,
-            text=previous_line_text,
-            fill="#94a3b8",
-            font=self.line_font,
-            anchor="center",
-            tags=("text",),
-        )
-        canvas.create_text(
-            width / 2,
-            72,
-            text="·" * len(previous_line_text),
-            fill="#475569",
-            font=self.bottom_font,
-            anchor="center",
-            tags=("text",),
-        )
+        self.current_line_display.configure(state="normal")
+        self.current_line_display.delete("1.0", "end")
+        self.current_line_display.insert("1.0", previous_line_text)
+        self.current_line_display.insert("end", "\n")
+        self.current_line_display.insert("end", "·" * len(previous_line_text))
+        self.current_line_display.configure(state="disabled")
 
         def finalize() -> None:
             if self.game_over:
@@ -577,13 +590,14 @@ class TypingBattleGame:
 
     def _finish_game(self, victory: bool) -> None:
         self.game_over = True
-        self.entry.delete(0, tk.END)
         self.entry.configure(state="disabled")
+        self.entry_var.set("")
         if victory:
             self.result_label.configure(
-                text="승리!"
+                text="승리! (스페이스바로 다시 시작)"
             )
             self.canvas.itemconfig(self.boss_circle, fill="#22c55e")
+            self.await_restart = True
 
     def run(self) -> None:
         self.root.mainloop()

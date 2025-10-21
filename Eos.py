@@ -21,8 +21,8 @@ class TypingBattleGame:
     CANVAS_WIDTH = 520
     CANVAS_HEIGHT = 220
 
-    PLAYER_POS = (40, 140, 100, 200)
-    BOSS_POS = (410, 40, 510, 140)
+    PLAYER_POS = (40, 120, 120, 200)
+    BOSS_POS = (400, 120, 480, 200)
 
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
@@ -342,66 +342,52 @@ class TypingBattleGame:
             typed_len = typed_len_override
 
         canvas = self.current_line_display
-        canvas.delete("all")
-        canvas.update_idletasks()
-        width = canvas.winfo_width() or self.CANVAS_WIDTH
-        height = canvas.winfo_height() or 110
-
-        canvas.create_rectangle(0, 0, width, height, fill="#111025", outline="")
-
+        current_line = current_line or ""
         typed_len = max(0, min(typed_len, len(current_line)))
 
-        char_widths = [self.line_font.measure(ch) for ch in current_line]
-        total_width = sum(char_widths)
-        if total_width <= 0:
-            total_width = self.line_font.measure(" ")
+        width = self.CANVAS_WIDTH
+        height = 110
 
-        x_start = (width - total_width) / 2
-        top_y = 28
+        image = tk.PhotoImage(width=width, height=height)
+        for y in range(height):
+            for x in range(width):
+                image.put("#111025", (x, y))
+
+        x_center = width // 2
+        top_y = 30
         bottom_y = 72
 
-        positions = []
-        current_x = x_start
-        for w in char_widths:
-            positions.append(current_x)
-            current_x += w if w else self.line_font.measure(" ")
+        def draw_text(text, y, fill, font):
+            label = tk.Label(canvas, text=text, font=font, fg=fill, bg="#111025")
+            label.place(x=x_center, y=y, anchor="center")
+            canvas.image = getattr(canvas, "image", []) + [label]
 
+        if hasattr(canvas, "image"):
+            for label in canvas.image:
+                label.destroy()
+
+        canvas.configure(width=width, height=height)
+        canvas.create_image(0, 0, image=image, anchor="nw")
+        canvas.bg_image = image
+
+        top_text = current_line[: typed_len]
+        if typed_len < len(current_line):
+            top_text += current_line[typed_len]
+        draw_text(top_text, top_y, "#34d399", self.line_font)
+
+        if typed_len < len(current_line) - 1:
+            pending = current_line[typed_len + 1 :]
+            draw_text(pending, top_y, "#a5b4fc", self.line_font)
+
+        bottom_chars = []
         for idx, ch in enumerate(current_line):
             if idx < typed_len:
-                color = "#34d399"
-            elif idx == typed_len:
-                color = "#facc15"
-            else:
-                color = "#a5b4fc"
-            canvas.create_text(
-                positions[idx],
-                top_y,
-                text=ch,
-                fill=color,
-                font=self.line_font,
-                tags=("text",),
-                anchor="nw",
-            )
-
-        for idx, ch in enumerate(current_line):
-            if idx < typed_len:
-                text_char = ch
-                color = "#fef08a"
+                bottom_chars.append(ch)
             elif idx == typed_len and wrong_char:
-                text_char = wrong_char
-                color = "#f87171"
+                bottom_chars.append(wrong_char)
             else:
-                text_char = "·"
-                color = "#475569"
-            canvas.create_text(
-                positions[idx],
-                bottom_y,
-                text=text_char,
-                fill=color,
-                font=self.bottom_font,
-                tags=("text",),
-                anchor="nw",
-            )
+                bottom_chars.append("·")
+        draw_text("".join(bottom_chars), bottom_y, "#fef08a", self.bottom_font)
 
     def _apply_entity_offsets(
         self, player_offset: tuple[float, float], boss_offset: tuple[float, float]

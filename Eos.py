@@ -71,8 +71,8 @@ class TypingBattleGame:
         container = ttk.Frame(self.root, padding=16)
         container.grid(row=0, column=0, sticky="nsew")
 
-        self.line_font = font.Font(family="Nanum Gothic", size=20, weight="bold")
-        self.bottom_font = font.Font(family="Nanum Gothic", size=18, weight="bold")
+        self.line_font = font.Font(family="Nanum Gothic", size=15, weight="bold")
+        self.bottom_font = font.Font(family="Nanum Gothic", size=14, weight="bold")
 
         hp_frame = ttk.Frame(container, padding=(0, 0, 0, 6))
         hp_frame.grid(row=0, column=0, sticky="ew")
@@ -182,7 +182,7 @@ class TypingBattleGame:
         self.current_line_display.tag_configure("bottom_wrong", foreground="#f87171")
         self.current_line_display.tag_configure("transition_old", foreground="#94a3b8")
         self.current_line_display.configure(state="disabled")
-        self.current_line_display.grid(row=0, column=0, sticky="ew", padx=20)
+        self.current_line_display.grid(row=0, column=0, sticky="ew", padx=0)
 
         self.entry_var = tk.StringVar()
         self.entry = tk.Entry(

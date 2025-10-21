@@ -78,7 +78,7 @@ class TypingBattleGame:
         hp_frame.grid(row=0, column=0, sticky="ew")
         hp_frame.columnconfigure(0, weight=1)
 
-        self.HP_BAR_WIDTH = 360
+        self.HP_BAR_WIDTH = 480
         self.HP_BAR_HEIGHT = 22
         self.hp_canvas = tk.Canvas(
             hp_frame,

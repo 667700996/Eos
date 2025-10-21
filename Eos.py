@@ -18,11 +18,11 @@ ANTHEM_LINES = [
 
 
 class TypingBattleGame:
-    CANVAS_WIDTH = 520
+    CANVAS_WIDTH = 420
     CANVAS_HEIGHT = 120
 
-    PLAYER_POS = (60, 30, 140, 110)
-    BOSS_POS = (380, 30, 460, 110)
+    PLAYER_POS = (40, 20, 120, 100)
+    BOSS_POS = (300, 20, 380, 100)
 
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
@@ -78,7 +78,7 @@ class TypingBattleGame:
         hp_frame.grid(row=0, column=0, sticky="ew")
         hp_frame.columnconfigure(0, weight=1)
 
-        self.HP_BAR_WIDTH = 480
+        self.HP_BAR_WIDTH = self.CANVAS_WIDTH
         self.HP_BAR_HEIGHT = 22
         self.hp_canvas = tk.Canvas(
             hp_frame,
@@ -119,7 +119,7 @@ class TypingBattleGame:
             bg="#1f1b2d",
             highlightthickness=0,
         )
-        self.canvas.grid(row=1, column=0, sticky="ew", pady=(6, 6))
+        self.canvas.grid(row=1, column=0, sticky="ew", pady=(6, 14))
 
         self.player_circle = self.canvas.create_oval(
             self.PLAYER_POS[0],
@@ -165,7 +165,7 @@ class TypingBattleGame:
 
         self.current_line_display = tk.Text(
             typing_frame,
-            width=48,
+            width=34,
             height=3,
             font=self.line_font,
             bg="#111025",
@@ -182,7 +182,7 @@ class TypingBattleGame:
         self.current_line_display.tag_configure("bottom_wrong", foreground="#f87171")
         self.current_line_display.tag_configure("transition_old", foreground="#94a3b8")
         self.current_line_display.configure(state="disabled")
-        self.current_line_display.grid(row=0, column=0, sticky="ew", padx=40)
+        self.current_line_display.grid(row=0, column=0, sticky="ew", padx=20)
 
         self.entry_var = tk.StringVar()
         self.entry = tk.Entry(

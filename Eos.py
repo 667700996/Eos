@@ -19,10 +19,10 @@ ANTHEM_LINES = [
 
 class TypingBattleGame:
     CANVAS_WIDTH = 520
-    CANVAS_HEIGHT = 180
+    CANVAS_HEIGHT = 120
 
-    PLAYER_POS = (60, 60, 140, 140)
-    BOSS_POS = (380, 60, 460, 140)
+    PLAYER_POS = (60, 30, 140, 110)
+    BOSS_POS = (380, 30, 460, 110)
 
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
@@ -78,7 +78,7 @@ class TypingBattleGame:
         hp_frame.grid(row=0, column=0, sticky="ew")
         hp_frame.columnconfigure(0, weight=1)
 
-        self.HP_BAR_WIDTH = self.CANVAS_WIDTH
+        self.HP_BAR_WIDTH = 360
         self.HP_BAR_HEIGHT = 22
         self.hp_canvas = tk.Canvas(
             hp_frame,
@@ -193,6 +193,7 @@ class TypingBattleGame:
             relief="flat",
         )
         self.entry.grid(row=1, column=0, pady=(8, 0), padx=60, sticky="ew")
+        self.entry.configure(insertontime=0)
         self.entry.focus_set()
 
         self.entry_var.trace_add("write", self._on_entry_change)
@@ -265,6 +266,7 @@ class TypingBattleGame:
     def _on_space_press(self, _event: tk.Event) -> None:
         if self.await_restart:
             self._reset_game_state()
+            return "break"
 
     def _process_input_char(self, ch: str) -> bool:
         if not ch or ch == "\r" or ch == "\n":
@@ -384,7 +386,7 @@ class TypingBattleGame:
         canvas.insert("1.0", current_line)
         canvas.insert("end", "\n")
 
-        bottom_chars = ["·" for _ in current_line]
+        bottom_chars = [" " for _ in current_line]
         for idx in range(min(typed_len, len(current_line))):
             bottom_chars[idx] = current_line[idx]
         if wrong_char and typed_len < len(bottom_chars):
@@ -547,12 +549,27 @@ class TypingBattleGame:
             self._update_line_display()
             return
 
-        self.current_line_display.configure(state="normal")
-        self.current_line_display.delete("1.0", "end")
-        self.current_line_display.insert("1.0", previous_line_text)
-        self.current_line_display.insert("end", "\n")
-        self.current_line_display.insert("end", "·" * len(previous_line_text))
-        self.current_line_display.configure(state="disabled")
+        canvas = self.current_line_display
+        canvas.configure(state="normal")
+        canvas.delete("1.0", "end")
+        canvas.insert("1.0", previous_line_text)
+        canvas.insert("end", "\n")
+        canvas.insert("end", " " * len(previous_line_text))
+
+        canvas.tag_remove("typed", "1.0", "end")
+        canvas.tag_remove("current", "1.0", "end")
+        canvas.tag_remove("pending", "1.0", "end")
+        canvas.tag_remove("bottom_line", "1.0", "end")
+        canvas.tag_remove("bottom_typed", "1.0", "end")
+        canvas.tag_remove("bottom_wrong", "1.0", "end")
+        canvas.tag_remove("align", "1.0", "end")
+
+        canvas.tag_add("align", "1.0", "2.0")
+        canvas.tag_add("align", "2.0", "3.0")
+        canvas.tag_add("bottom_line", "2.0", "3.0")
+        canvas.tag_add("typed", "1.0", "1.0 lineend")
+
+        canvas.configure(state="disabled")
 
         def finalize() -> None:
             if self.game_over:
@@ -593,9 +610,7 @@ class TypingBattleGame:
         self.entry.configure(state="disabled")
         self.entry_var.set("")
         if victory:
-            self.result_label.configure(
-                text="승리! (스페이스바로 다시 시작)"
-            )
+            self.result_label.configure(text="승리!")
             self.canvas.itemconfig(self.boss_circle, fill="#22c55e")
             self.await_restart = True
 

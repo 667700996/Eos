@@ -182,18 +182,15 @@ class TypingBattleGame:
         self.current_line_display.tag_configure("bottom_wrong", foreground="#f87171")
         self.current_line_display.tag_configure("transition_old", foreground="#94a3b8")
         self.current_line_display.configure(state="disabled")
-        self.current_line_display.grid(row=0, column=0, sticky="ew")
+        self.current_line_display.grid(row=0, column=0, sticky="ew", padx=40)
 
         self.entry_var = tk.StringVar()
         self.entry = tk.Entry(
-            typing_frame,
+            self.root,
             textvariable=self.entry_var,
             font=self.line_font,
-            justify="center",
-            relief="flat",
         )
-        self.entry.grid(row=1, column=0, pady=(8, 0), padx=60, sticky="ew")
-        self.entry.configure(insertontime=0)
+        self.entry.place(x=-1000, y=-1000, width=10, height=10)
         self.entry.focus_set()
 
         self.entry_var.trace_add("write", self._on_entry_change)

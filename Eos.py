@@ -341,18 +341,6 @@ class TypingBattleGame:
         if typed_len_override is not None:
             typed_len = typed_len_override
 
-        self.current_line_display.configure(state="normal")
-        self.current_line_display.delete("1.0", "end")
-        self.current_line_display.insert("1.0", current_line)
-        self.current_line_display.insert("end", "\n")
-
-        bottom_chars = [" "] * len(current_line)
-        for idx in range(min(typed_len, len(current_line))):
-            bottom_chars[idx] = current_line[idx]
-        if wrong_char and typed_len < len(bottom_chars):
-            bottom_chars[typed_len] = wrong_char
-        self.current_line_display.insert("end", "".join(bottom_chars))
-
         canvas = self.current_line_display
         canvas.delete("all")
         canvas.update_idletasks()
